@@ -1,0 +1,17 @@
+<svg width="200" height="60" viewBox="0 0 200 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="200" height="60" rx="8" fill="#16a34a"/>
+
+  <!-- Leaf icon -->
+  <path d="M15 20c0-5.5 4.5-10 10-10s10 4.5 10 10c0 3.5-1.8 6.5-4.5 8.2L25 45l-5.5-16.8C16.8 26.5 15 23.5 15 20z" fill="#dcfce7"/>
+  <circle cx="25" cy="20" r="3" fill="#16a34a"/>
+
+  <!-- Text -->
+  <text x="50" y="25" font-family="Arial, sans-serif" font-size="18" font-weight="bold" fill="#ffffff">IGO</text>
+  <text x="50" y="42" font-family="Arial, sans-serif" font-size="10" font-weight="600" fill="#dcfce7">AGRITECH</text>
+
+  <!-- Decorative elements -->
+  <circle cx="175" cy="15" r="2" fill="#dcfce7" opacity="0.6"/>
+  <circle cx="185" cy="25" r="1.5" fill="#dcfce7" opacity="0.4"/>
+  <circle cx="175" cy="35" r="1" fill="#dcfce7" opacity="0.3"/>
+</svg>

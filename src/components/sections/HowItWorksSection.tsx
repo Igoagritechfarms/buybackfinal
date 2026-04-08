@@ -5,9 +5,7 @@ import {
   ArrowRight, Leaf,
 } from 'lucide-react';
 
-/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-   Step data â€” 5 nodes placed around the circle
-â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* Step data - 5 nodes placed around the circle */
 const STEPS = [
   {
     id: 1,
@@ -15,7 +13,7 @@ const STEPS = [
     title: 'Register',
     shortDesc: 'Share produce details',
     fullDesc: 'Farmers can easily enroll and supply their produce with IGO Farmgate Mandi, connecting directly to a trusted buyback network.',
-    deg: 180, // left
+    deg: 180,
     tag1: 'DIRECT BUY', tag2: 'TRUSTED NETWORK', tag3: 'FARMER EARNINGS',
   },
   {
@@ -24,7 +22,7 @@ const STEPS = [
     title: 'Quality Check',
     shortDesc: 'Freshness and grading',
     fullDesc: 'Our team performs a proper quality check to ensure fair evaluation based on produce freshness, grade, and market demand.',
-    deg: 252, // top-left
+    deg: 252,
     tag1: 'TRUSTED NETWORK', tag2: 'BEST PRICE', tag3: 'DIRECT BUY',
   },
   {
@@ -33,7 +31,7 @@ const STEPS = [
     title: 'Best Landing Price',
     shortDesc: 'Farmer-first pricing',
     fullDesc: 'IGO Farmgate Mandi offers the best landing price through direct farmer buying support, without middlemen.',
-    deg: 324, // top-right
+    deg: 324,
     tag1: 'BEST PRICE', tag2: 'DIRECT BUY', tag3: 'TRUSTED NETWORK',
   },
   {
@@ -42,7 +40,7 @@ const STEPS = [
     title: 'Billing',
     shortDesc: 'Clear transaction details',
     fullDesc: 'Accurate and transparent billing with complete details — all transactions are clearly recorded and visible on the platform.',
-    deg: 36, // right
+    deg: 36,
     tag1: 'TRANSPARENT BILLING', tag2: 'DIRECT BUY', tag3: 'TRUSTED NETWORK',
   },
   {
@@ -51,18 +49,16 @@ const STEPS = [
     title: 'You Earn',
     shortDesc: 'Confident farmer payout',
     fullDesc: 'Farmers earn with confidence through trusted payments, smooth process support, and 24-hours technical assistance.',
-    deg: 108, // bottom-right
+    deg: 108,
     tag1: 'FARMER EARNINGS', tag2: '24/7 SUPPORT', tag3: 'TRUSTED NETWORK',
   },
 ];
 
-/* â”€â”€â”€ polar-to-Cartesian helper â”€â”€â”€ */
 const polar = (cx: number, cy: number, r: number, deg: number) => {
   const rad = ((deg - 90) * Math.PI) / 180;
   return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
 };
 
-/* â”€â”€â”€ SVG arc path helper â”€â”€â”€ */
 const arcPath = (cx: number, cy: number, r: number, startDeg: number, endDeg: number) => {
   const st = polar(cx, cy, r, startDeg);
   const en = polar(cx, cy, r, endDeg);
@@ -73,7 +69,6 @@ const arcPath = (cx: number, cy: number, r: number, startDeg: number, endDeg: nu
 const CX = 250, CY = 250, RADIUS = 150, NODE_R = 28;
 const AUTO_ROTATE_MS = 5000;
 
-/* Brand greens */
 const GREEN_600 = '#16a34a';
 const GREEN_700 = '#15803d';
 const GREEN_200 = '#bbf7d0';
@@ -96,7 +91,6 @@ export const HowItWorksSection = () => {
     }, AUTO_ROTATE_MS);
   }, []);
 
-  // Start auto-rotate on mount from step 1
   useEffect(() => {
     setActive(1);
     startAutoRotate(1);
@@ -117,7 +111,13 @@ export const HowItWorksSection = () => {
       className="relative py-24 overflow-hidden"
       style={{ background: 'linear-gradient(160deg, #f0fdf4 0%, #ffffff 50%, #f0fdf4 100%)' }}
     >
-      {/* Subtle grid texture */}
+      {/* Attachment-inspired operational background theme with transparency */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute inset-0 bg-[url('/how-it-works-bg.png')] bg-cover bg-center bg-no-repeat opacity-20" />
+        <div className="absolute inset-0 bg-green-50/80 backdrop-blur-[1px]" />
+      </div>
+
+      {/* Existing texture and accents kept intact */}
       <div className="absolute inset-0 pointer-events-none opacity-[0.03]">
         <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
           <defs>
@@ -129,14 +129,13 @@ export const HowItWorksSection = () => {
         </svg>
       </div>
 
-      {/* Decorative blobs */}
       <div className="absolute top-0 right-0 w-96 h-96 rounded-full -translate-y-1/2 translate-x-1/3 pointer-events-none"
         style={{ background: 'radial-gradient(circle, rgba(134,239,172,0.18) 0%, transparent 70%)' }} />
       <div className="absolute bottom-0 left-0 w-80 h-80 rounded-full translate-y-1/3 -translate-x-1/4 pointer-events-none"
         style={{ background: 'radial-gradient(circle, rgba(22,163,74,0.10) 0%, transparent 70%)' }} />
 
-      <div className="relative max-w-6xl mx-auto px-6">
-        {/* â”€â”€ Section Header â”€â”€ */}
+      <div className="relative z-10 max-w-6xl mx-auto px-6">
+        {/* Section Header */}
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -158,13 +157,11 @@ export const HowItWorksSection = () => {
             How It Works
           </h2>
           <p className="text-base text-gray-500 max-w-xl mx-auto font-medium leading-relaxed">
-            A seamless, circular lifecycle. From your farm to our facilities ” transparent, efficient, farmer-first.
+            A seamless, circular lifecycle. From your farm to our facilities - transparent, efficient, farmer-first.
           </p>
         </motion.div>
 
-        {/* LAYOUT */}
         <div className="flex flex-col lg:flex-row items-center lg:items-start justify-center gap-12 lg:gap-20">
-          
           {/* SVG CIRCLE DIAGRAM */}
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
@@ -179,7 +176,6 @@ export const HowItWorksSection = () => {
               xmlns="http://www.w3.org/2000/svg"
             >
               <defs>
-                {/* Glow filter for active node */}
                 <filter id="glow-active" x="-40%" y="-40%" width="180%" height="180%">
                   <feGaussianBlur stdDeviation="6" result="blur" />
                   <feFlood floodColor="#16a34a" floodOpacity="0.35" result="color" />
@@ -196,13 +192,11 @@ export const HowItWorksSection = () => {
                   <feDropShadow dx="0" dy="4" stdDeviation="10" floodColor="#15803d" floodOpacity="0.25" />
                 </filter>
 
-                {/* Green arrow marker */}
                 <marker id="greenArrow" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
                   <path d="M 0 0 L 6 3 L 0 6 Z" fill="#86efac" />
                 </marker>
               </defs>
 
-              {/* Background circle track */}
               <circle
                 cx={CX} cy={CY} r={RADIUS}
                 fill="none"
@@ -210,7 +204,6 @@ export const HowItWorksSection = () => {
                 strokeWidth="3"
               />
 
-              {/* Green arcs between steps */}
               {STEPS.map((step, i) => {
                 const next = STEPS[(i + 1) % STEPS.length];
                 const gapDeg = 24;
@@ -231,7 +224,6 @@ export const HowItWorksSection = () => {
                 );
               })}
 
-              {/* Center Logo Hub â€” green filled */}
               <motion.g
                 initial={{ opacity: 0, scale: 0.8 }}
                 whileInView={{ opacity: 1, scale: 1 }}
@@ -254,7 +246,6 @@ export const HowItWorksSection = () => {
                 </text>
               </motion.g>
 
-              {/* Step Nodes */}
               {STEPS.map((step, i) => {
                 const pos = polar(CX, CY, RADIUS, step.deg);
                 const isActive = active === step.id;
@@ -269,10 +260,8 @@ export const HowItWorksSection = () => {
                     style={{ cursor: 'pointer' }}
                     onClick={() => handleStepClick(step.id, isActive)}
                   >
-                    {/* Invisible click hotspot */}
                     <circle cx={pos.x} cy={pos.y} r={NODE_R + 16} fill="transparent" />
 
-                    {/* Outer pulse ring when active */}
                     <motion.circle
                       cx={pos.x} cy={pos.y}
                       r={NODE_R + 8}
@@ -286,7 +275,6 @@ export const HowItWorksSection = () => {
                       transition={{ duration: 2, repeat: isActive ? Infinity : 0, ease: 'easeInOut' }}
                     />
 
-                    {/* Node circle â€” green when active, white when inactive */}
                     <motion.circle
                       cx={pos.x} cy={pos.y}
                       r={NODE_R}
@@ -299,7 +287,6 @@ export const HowItWorksSection = () => {
                       transition={{ duration: 0.25, type: 'spring', stiffness: 300 }}
                     />
 
-                    {/* Icon â€” white when active, dark green when inactive */}
                     <g
                       transform={`translate(${pos.x - 10}, ${pos.y - 10})`}
                       opacity={isActive ? 1 : 0.65}
@@ -308,7 +295,6 @@ export const HowItWorksSection = () => {
                       <step.icon size={20} strokeWidth={isActive ? 2.5 : 1.8} />
                     </g>
 
-                    {/* Step Number Badge */}
                     <circle
                       cx={pos.x + NODE_R * 0.7}
                       cy={pos.y - NODE_R * 0.7}
@@ -329,7 +315,6 @@ export const HowItWorksSection = () => {
                       {step.id}
                     </text>
 
-                    {/* Label outside the circle */}
                     {(() => {
                       const labelR = RADIUS + 55;
                       const lp = polar(CX, CY, labelR, step.deg);
@@ -382,38 +367,31 @@ export const HowItWorksSection = () => {
                   className="relative overflow-hidden rounded-[2rem] border shadow-[0_8px_32px_rgba(22,163,74,0.12)] bg-white"
                   style={{ borderColor: GREEN_200 }}
                 >
-                  {/* Green accent top bar */}
                   <div className="absolute top-0 left-0 right-0 h-1 rounded-t-[2rem]"
                     style={{ background: `linear-gradient(90deg, ${GREEN_700} 0%, ${GREEN_600} 100%)` }} />
 
-                  {/* Subtle green tint bg at top */}
                   <div className="absolute top-0 left-0 right-0 h-28 pointer-events-none"
                     style={{ background: 'linear-gradient(180deg, #f0fdf4 0%, transparent 100%)' }} />
 
                   <div className="relative p-7">
-                    {/* Icon circle */}
                     <div className="w-11 h-11 rounded-2xl flex items-center justify-center mb-5 shadow-sm"
                       style={{ background: GREEN_50, border: `1.5px solid ${GREEN_200}` }}>
                       <activeStep.icon size={20} strokeWidth={2} style={{ color: GREEN_700 }} />
                     </div>
 
-                    {/* Step label */}
                     <div className="text-[10px] font-black uppercase tracking-widest mb-1.5"
                       style={{ color: GREEN_600 }}>
                       STEP {String(activeStep.id).padStart(2, '0')}
                     </div>
 
-                    {/* Heading */}
                     <h3 className="text-2xl font-black tracking-tight mb-3" style={{ color: '#14532d' }}>
                       {activeStep.title}
                     </h3>
 
-                    {/* Description */}
                     <p className="text-gray-500 leading-relaxed text-sm font-medium">
                       {activeStep.fullDesc}
                     </p>
 
-                    {/* Tags */}
                     <div className="mt-6 flex gap-2 flex-wrap">
                       {[activeStep.tag1, activeStep.tag2, activeStep.tag3].map((tag) => (
                         <span
@@ -455,7 +433,6 @@ export const HowItWorksSection = () => {
               )}
             </AnimatePresence>
 
-            {/* Step progress dots */}
             {activeStep && (
               <div className="flex justify-center gap-2 mt-4">
                 {STEPS.map(s => (
@@ -471,8 +448,8 @@ export const HowItWorksSection = () => {
             )}
           </div>
         </div>
-
       </div>
     </section>
   );
 };
+

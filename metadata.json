@@ -1,0 +1,7 @@
+{
+  "name": "IGO Agritech Farms - Buyback Program",
+  "description": "A modern agriculture platform empowering farmers through guaranteed buyback programs and direct market access.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}

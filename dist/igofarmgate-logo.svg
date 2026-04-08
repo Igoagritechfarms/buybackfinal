@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 275" role="img" aria-label="IGOBuyback Logo">
+  <!-- Shopping Cart Basket (trapezoid outline) -->
+  <path d="M 352 132 L 344 46 L 458 46 L 450 132 Z"
+        fill="none" stroke="#84CC16" stroke-width="12"
+        stroke-linejoin="round" stroke-linecap="round"/>
+
+  <!-- Cart Handle (upper right) -->
+  <path d="M 458 46 C 476 24 496 14 520 8"
+        fill="none" stroke="#84CC16" stroke-width="12"
+        stroke-linecap="round"/>
+
+  <!-- Left Arm (upper left) -->
+  <path d="M 344 46 L 330 26"
+        fill="none" stroke="#84CC16" stroke-width="12"
+        stroke-linecap="round"/>
+
+  <!-- Wheel Left -->
+  <circle cx="372" cy="149" r="14" fill="#3D3D3D"/>
+  <!-- Wheel Right -->
+  <circle cx="432" cy="149" r="14" fill="#3D3D3D"/>
+
+  <!-- Large Leaf (left) -->
+  <path d="M 400 124 Q 372 80 395 38 Q 432 64 400 124 Z" fill="#84CC16"/>
+
+  <!-- Small Leaf (right, overlapping) -->
+  <path d="M 424 119 Q 408 76 433 46 Q 452 68 424 119 Z" fill="#5EA800"/>
+
+  <!-- Text: IGOBuyback -->
+  <text x="2" y="242"
+        font-family="'Arial Black', 'Arial Bold', Arial, Helvetica, sans-serif"
+        font-weight="900"
+        font-size="124"
+        fill="#111111"
+        letter-spacing="-3">IGOBuyback</text>
+</svg>
