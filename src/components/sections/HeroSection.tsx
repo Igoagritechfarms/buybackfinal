@@ -1,4 +1,4 @@
-﻿import { Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 import {
   ArrowRight, ShieldCheck, Star, Leaf,
@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 
 /**
- * Hero Section — IGO Farmgate Mandi
+ * Hero Section — Farmgate Mandi
  * "Sell Direct. Earn Better. Get Paid On Time"
  * Assured Farmgate Mandi · Fast Quality Verification · Technical Support · Trusted Buyer Network
  */
@@ -201,7 +201,7 @@ export const HeroSection = () => (
           >
             <h3 className="text-lg font-black text-white mb-5 flex items-center gap-2">
               <Award size={20} className="text-lime-300" />
-              IGO Farmgate Mandi at a Glance
+              Farmgate Mandi at a Glance
             </h3>
             <div className="grid grid-cols-2 gap-4">
               {[

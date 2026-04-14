@@ -88,7 +88,7 @@ export const AdminLogin = () => {
         </div>
 
         <div className="relative z-10 text-xs text-gray-600">
-          © 2026 IGO Farmgate Mandi · IGO Agritech Farms
+          © 2026 Farmgate Mandi · IGO Agritech Farms
         </div>
       </div>
 

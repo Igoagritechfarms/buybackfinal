@@ -3,7 +3,7 @@ import { motion } from 'motion/react';
 import { ArrowRight, BadgeCheck, Leaf, Phone } from 'lucide-react';
 
 /**
- * CTA Section — IGO Farmgate Mandi Program
+ * CTA Section — Farmgate Mandi Program
  */
 export const CTASection = () => (
   <section className="py-24 relative overflow-hidden bg-gray-950">
@@ -48,7 +48,7 @@ export const CTASection = () => (
         className="inline-flex items-center gap-2 px-4 py-2 bg-green-500/15 border border-green-500/30 rounded-full text-green-400 text-sm font-semibold mb-6"
       >
         <BadgeCheck size={15} />
-        IGO Farmgate Mandi Program
+        Farmgate Mandi Program
         <motion.div
           animate={{ scale: [1, 1.4, 1] }}
           transition={{ duration: 2, repeat: Infinity }}
@@ -66,7 +66,7 @@ export const CTASection = () => (
       >
         Expand Farm Profitability
         <br />
-        <span className="text-green-400">with IGO Farmgate Mandi</span>
+        <span className="text-green-400">with Farmgate Mandi</span>
       </motion.h2>
 
       <motion.p
@@ -76,7 +76,7 @@ export const CTASection = () => (
         transition={{ delay: 0.2 }}
         className="text-gray-400 text-lg mb-10 max-w-2xl mx-auto leading-relaxed"
       >
-        1,200+ Indian farmers already trust IGO Farmgate Mandi for fair pricing, rigorous quality checks, and on-time payments. No middlemen. No delays.
+        1,200+ Indian farmers already trust Farmgate Mandi for fair pricing, rigorous quality checks, and on-time payments. No middlemen. No delays.
       </motion.p>
 
       {/* Benefit pills */}

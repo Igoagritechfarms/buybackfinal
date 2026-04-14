@@ -170,7 +170,7 @@ export const Footer = () => (
         transition={{ duration: 0.6, delay: 0.4 }}
       >
         <div className="flex items-center gap-2">
-          <span>© 2026 IGO Farmgate Mandi · IGO Agricultural Marketplace. All Rights Reserved.</span>
+          <span>© 2026 Farmgate Mandi · IGO Agricultural Marketplace. All Rights Reserved.</span>
           <motion.div animate={{ scale: [1, 1.3, 1] }} transition={{ duration: 2, repeat: Infinity }}>
             <Heart size={10} className="text-red-400" />
           </motion.div>

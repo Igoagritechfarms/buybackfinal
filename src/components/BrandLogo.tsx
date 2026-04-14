@@ -17,7 +17,7 @@ const logoSrc = '/igo-farmgate-mandi-logo.png';
 
 export const BrandLogo = ({
   to,
-  alt = 'IGO Farmgate Mandi',
+  alt = 'Farmgate Mandi',
   className = 'flex flex-col items-start gap-1',
   linkClassName = 'block shrink-0',
   imageClassName = 'h-12 w-auto',

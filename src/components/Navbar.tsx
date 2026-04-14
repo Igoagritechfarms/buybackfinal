@@ -45,7 +45,7 @@ export const Navbar = () => {
             to="/"
             className="flex items-center gap-3"
             imageClassName="h-10 w-auto sm:h-12"
-            title="IGO Farmgate Mandi"
+            title="Farmgate Mandi"
             titleClassName="text-sm font-black leading-none tracking-tight text-gray-900 sm:text-base"
             textBlockClassName="flex flex-col items-start justify-center gap-1"
             caption="Powered by IGO Group"

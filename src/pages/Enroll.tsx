@@ -1,4 +1,4 @@
-﻿import { motion } from 'motion/react';
+import { motion } from 'motion/react';
 import { CheckCircle2, Play, IndianRupee, Truck, Calendar } from 'lucide-react';
 import { EnrollmentForm } from '../components/EnrollmentForm';
 import { useI18n } from '../lib/i18n';
@@ -30,7 +30,7 @@ export const Enroll = () => {
       <div className="bg-gradient-to-br from-agri-green-700 to-agri-green-900 text-white">
         <div className="max-w-7xl mx-auto px-6 py-16">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="max-w-3xl">
-            <div className="badge-green bg-white/20 text-white w-fit mb-4">IGO Farmgate Mandi</div>
+            <div className="badge-green bg-white/20 text-white w-fit mb-4">Farmgate Mandi</div>
             <h1 className="text-4xl md:text-6xl font-black tracking-tighter mb-5">
               {t('enroll_title')}
             </h1>
@@ -65,7 +65,7 @@ export const Enroll = () => {
                   <div className="w-20 h-20 bg-white/20 backdrop-blur-md border-2 border-white/40 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
                     <Play size={32} fill="white" className="text-white ml-1" />
                   </div>
-                  <p className="text-white font-semibold text-sm">Watch: How IGO Farmgate Mandi Works</p>
+                  <p className="text-white font-semibold text-sm">Watch: How Farmgate Mandi Works</p>
                   <p className="text-white/60 text-xs mt-1">30 seconds</p>
                 </div>
               </div>

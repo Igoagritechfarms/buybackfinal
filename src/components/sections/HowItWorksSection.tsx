@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   UserPlus, IndianRupee, ShieldCheck, FileText, Banknote,
@@ -12,7 +12,7 @@ const STEPS = [
     icon: UserPlus,
     title: 'Register',
     shortDesc: 'Share produce details',
-    fullDesc: 'Farmers can easily enroll and supply their produce with IGO Farmgate Mandi, connecting directly to a trusted farmgate mandi network.',
+    fullDesc: 'Farmers can easily enroll and supply their produce with Farmgate Mandi, connecting directly to a trusted farmgate mandi network.',
     deg: 180,
     tag1: 'DIRECT BUY', tag2: 'TRUSTED NETWORK', tag3: 'FARMER EARNINGS',
   },
@@ -30,7 +30,7 @@ const STEPS = [
     icon: IndianRupee,
     title: 'Best Landing Price',
     shortDesc: 'Farmer-first pricing',
-    fullDesc: 'IGO Farmgate Mandi offers the best landing price through direct farmer buying support, without middlemen.',
+    fullDesc: 'Farmgate Mandi offers the best landing price through direct farmer buying support, without middlemen.',
     deg: 324,
     tag1: 'BEST PRICE', tag2: 'DIRECT BUY', tag3: 'TRUSTED NETWORK',
   },

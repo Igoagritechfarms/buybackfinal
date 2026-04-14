@@ -245,7 +245,7 @@ export const DailyMarketTrendsSection = () => {
             Track daily mandi and wholesale market price movement across key cities.
           </p>
           <p className="mx-auto mt-2 max-w-3xl text-sm text-gray-500">
-            Monitor daily market rates from major trading locations to make smarter sell decisions with IGO Farmgate Mandi.
+            Monitor daily market rates from major trading locations to make smarter sell decisions with Farmgate Mandi.
           </p>
         </motion.div>
 

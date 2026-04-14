@@ -91,7 +91,7 @@ export const WhyChooseUsSection = () => (
         </h2>
         <div className="mt-4 mb-4 h-1 w-24 rounded-full bg-agri-green-600 mx-auto" />
         <p className="text-base md:text-lg text-agri-earth-600 max-w-2xl mx-auto">
-          Why farmers, aggregators, and buyers trust IGO Farmgate Mandi
+          Why farmers, aggregators, and buyers trust Farmgate Mandi
         </p>
       </motion.div>
 

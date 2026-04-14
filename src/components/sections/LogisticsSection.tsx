@@ -50,7 +50,7 @@ export const LogisticsSection = () => {
               <span className="text-lime-400">Entire Journey.</span>
             </h2>
             <p className="text-gray-400 leading-relaxed">
-              From intake coordination to strict quality checks and guaranteed on-time payment — IGO Farmgate Mandi supports the entire process so you can focus on farming.
+              From intake coordination to strict quality checks and guaranteed on-time payment — Farmgate Mandi supports the entire process so you can focus on farming.
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

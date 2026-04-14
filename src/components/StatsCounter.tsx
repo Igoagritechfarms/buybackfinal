@@ -59,7 +59,7 @@ export const StatsCounter = () => (
         viewport={{ once: true }}
         className="text-center text-xs font-bold text-green-600 uppercase tracking-widest mb-10"
       >
-        IGO Farmgate Mandi by the Numbers
+        Farmgate Mandi by the Numbers
       </motion.p>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-8 divide-x divide-gray-100">
         <Counter value={1200} suffix="+" label="Registered Farmers" sublabel="India-wide" />

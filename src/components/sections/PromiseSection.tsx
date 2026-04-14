@@ -48,7 +48,7 @@ const PROMISES = [
     icon: Leaf,
     emoji: '🌾',
     title: 'Farmer-first Commitment',
-    desc: 'Every process, feature, and policy at IGO Farmgate Mandi is designed for the benefit of the farmer — not middlemen or traders.',
+    desc: 'Every process, feature, and policy at Farmgate Mandi is designed for the benefit of the farmer — not middlemen or traders.',
     accent: '#4d7c0f',
     light: '#d9f99d',
   },
@@ -192,7 +192,7 @@ export const PromiseSection = () => (
           <div className="w-8 h-8 bg-green-600 rounded-xl flex items-center justify-center">
             <Warehouse size={16} className="text-white" />
           </div>
-          <span className="font-black text-gray-900 text-sm">IGO Farmgate Mandi</span>
+          <span className="font-black text-gray-900 text-sm">Farmgate Mandi</span>
         </div>
         <div className="hidden sm:block w-px h-5 bg-gray-200" />
         <div className="flex flex-wrap gap-2 justify-center">
