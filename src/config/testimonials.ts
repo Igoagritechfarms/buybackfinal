@@ -133,7 +133,7 @@ export const textTestimonials: TextTestimonial[] = [
     role: 'Cucumber Farmer, Madurai',
     text: 'IGO Agritech changed everything for me. I used to lose 30% to middlemen. Now I get full market price in 7 days — directly in my account.',
     rating: 5,
-    image: 'https://randomuser.me/api/portraits/men/32.jpg',
+    image: '/testimonial-avatars/ramesh-kumar.svg',
     badge: '🌱 8 Harvests',
   },
   {
@@ -142,7 +142,7 @@ export const textTestimonials: TextTestimonial[] = [
     role: 'Restaurant Owner, Chennai',
     text: "The freshness and quality of microgreens from IGO is outstanding. Delivery is always on time. Best B2B supplier I've worked with.",
     rating: 5,
-    image: 'https://randomuser.me/api/portraits/women/44.jpg',
+    image: '/testimonial-avatars/anitha-selvam.svg',
     badge: '👨‍💼 Top Buyer',
   },
   {
@@ -151,7 +151,7 @@ export const textTestimonials: TextTestimonial[] = [
     role: 'Mushroom Farmer, Coimbatore',
     text: 'Transparent pricing and self transport intake — I just focus on growing. IGO handles everything else. Highly recommend to all farmers.',
     rating: 5,
-    image: 'https://randomuser.me/api/portraits/men/53.jpg',
+    image: '/testimonial-avatars/senthil-nathan.svg',
     badge: '🏆 Premium',
   },
   {
@@ -160,7 +160,7 @@ export const textTestimonials: TextTestimonial[] = [
     role: 'Homemaker, Salem',
     text: 'We get fresh vegetables delivered directly from farms. The quality difference is night and day compared to supermarkets.',
     rating: 5,
-    image: 'https://randomuser.me/api/portraits/women/29.jpg',
+    image: '/testimonial-avatars/priya-muthukumar.svg',
     badge: '⭐ Loyal',
   },
   {
@@ -169,7 +169,7 @@ export const textTestimonials: TextTestimonial[] = [
     role: 'Distributor, Bangalore',
     text: 'The reliability of supply chain through IGO is unmatched. My B2B clients trust us because IGO never disappoints on quality or timing.',
     rating: 5,
-    image: 'https://randomuser.me/api/portraits/men/61.jpg',
+    image: '/testimonial-avatars/arun-sharma.svg',
     badge: '📦 B2B',
   },
   {
@@ -178,7 +178,7 @@ export const textTestimonials: TextTestimonial[] = [
     role: 'Vegetable Farmer, Hosur',
     text: 'Best decision I made was joining IGO. The platform is so easy to use, and I get fair prices. My income doubled in 6 months.',
     rating: 5,
-    image: 'https://randomuser.me/api/portraits/women/36.jpg',
+    image: '/testimonial-avatars/deepa-krishnan.svg',
     badge: '💪 Growth',
   },
 ];
@@ -194,7 +194,7 @@ export const buyerTestimonials: TextTestimonial[] = [
     role: 'Restaurant Owner, Chennai',
     text: 'The freshness and quality of microgreens from IGO is outstanding. Delivery is always on time. Best B2B supplier I\'ve worked with.',
     rating: 5,
-    image: 'https://randomuser.me/api/portraits/women/52.jpg',
+    image: '/testimonial-avatars/anitha-selvam.svg',
     badge: '👨‍💼 Top Buyer',
   },
   {
@@ -203,7 +203,7 @@ export const buyerTestimonials: TextTestimonial[] = [
     role: 'Hotel Manager, Hyderabad',
     text: 'Consistent quality, competitive pricing, and reliable delivery. IGO has become our primary vegetable supplier. Couldn\'t be happier.',
     rating: 5,
-    image: 'https://randomuser.me/api/portraits/men/47.jpg',
+    image: '/testimonial-avatars/vikram-patel.svg',
     badge: '⭐ Premium',
   },
   {
@@ -212,7 +212,7 @@ export const buyerTestimonials: TextTestimonial[] = [
     role: 'Organic Store, Pune',
     text: 'Certified organic products at fair prices. Our customers love the freshness. IGO has helped us scale our business significantly.',
     rating: 5,
-    image: 'https://randomuser.me/api/portraits/women/68.jpg',
+    image: '/testimonial-avatars/lakshmi-exports.svg',
     badge: '🌿 Organic',
   },
 ];

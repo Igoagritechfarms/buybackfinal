@@ -13,14 +13,14 @@ type BrandLogoProps = {
   captionClassName?: string;
 };
 
-const logoSrc = '/igo-farmgate-mandi-logo.png';
+const logoSrc = '/farmgate-mandi-logo.jpeg';
 
 export const BrandLogo = ({
   to,
   alt = 'Farmgate Mandi',
   className = 'flex flex-col items-start gap-1',
   linkClassName = 'block shrink-0',
-  imageClassName = 'h-12 w-auto',
+  imageClassName = 'h-12 w-auto object-contain',
   title,
   titleClassName = 'text-sm font-black leading-none tracking-tight text-gray-900',
   textBlockClassName = 'flex flex-col items-start gap-1',

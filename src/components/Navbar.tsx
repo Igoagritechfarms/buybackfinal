@@ -44,7 +44,7 @@ export const Navbar = () => {
           <BrandLogo
             to="/"
             className="flex items-center gap-3"
-            imageClassName="h-10 w-auto sm:h-12"
+            imageClassName="h-12 w-auto object-contain sm:h-14"
             title="Farmgate Mandi"
             titleClassName="text-sm font-black leading-none tracking-tight text-gray-900 sm:text-base"
             textBlockClassName="flex flex-col items-start justify-center gap-1"

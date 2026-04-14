@@ -299,9 +299,8 @@ export const TestimonialsSection = () => {
                           return;
                         }
                         img.dataset.fallbackApplied = 'true';
-                        img.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(r.name)}&background=dcfce7&color=166534&size=96&rounded=true`;
+                        img.src = '/testimonial-avatars/default-avatar.svg';
                       }}
-                      referrerPolicy="no-referrer"
                     />
                     <div className="flex-grow">
                       <div className="font-bold text-sm text-agri-earth-900">{r.name}</div>
