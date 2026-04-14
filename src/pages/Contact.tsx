@@ -74,10 +74,10 @@ export const Contact = () => {
           {/* Info */}
           <div className="space-y-5">
             {[
-              { icon: <Phone size={20} className="text-agri-green-600" />, label: 'Phone', val: '+91 99999 99999', href: 'tel:+919999999999' },
-              { icon: <Mail size={20} className="text-agri-green-600" />, label: 'Email', val: 'info@igoagritech.com', href: 'mailto:info@igoagritech.com' },
-              { icon: <MapPin size={20} className="text-agri-green-600" />, label: 'Location', val: 'Tamil Nadu, India', href: '#' },
-              { icon: <Clock size={20} className="text-agri-green-600" />, label: 'Working Hours', val: 'Mon–Sat, 8 AM – 6 PM', href: '#' },
+              { icon: <Phone size={20} className="text-agri-green-600" />, label: 'Phone', val: '+91 8925893321', href: 'tel:+91 8925893321' },
+              { icon: <Mail size={20} className="text-agri-green-600" />, label: 'Email', val: 'buyback@igogroups.com', href: 'mailto: buyback@igogroups.com' },
+              { icon: <MapPin size={20} className="text-agri-green-600" />, label: 'Head office Location', val: 'No 17 , Kovalan street, 2nd main road, Uthandi kanathur, Chennai 600119.Tamil Nadu, India', href: '#' },
+              { icon: <Clock size={20} className="text-agri-green-600" />, label: 'Working Hours', val: 'Mon–Sat, 10 AM – 7.30 PM', href: '#' },
             ].map(c => (
               <div key={c.label} className="card p-4 flex items-start gap-4">
                 <div className="w-10 h-10 bg-agri-green-50 rounded-xl flex items-center justify-center shrink-0">{c.icon}</div>

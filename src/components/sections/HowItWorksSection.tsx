@@ -12,7 +12,7 @@ const STEPS = [
     icon: UserPlus,
     title: 'Register',
     shortDesc: 'Share produce details',
-    fullDesc: 'Farmers can easily enroll and supply their produce with IGO Farmgate Mandi, connecting directly to a trusted buyback network.',
+    fullDesc: 'Farmers can easily enroll and supply their produce with IGO Farmgate Mandi, connecting directly to a trusted farmgate mandi network.',
     deg: 180,
     tag1: 'DIRECT BUY', tag2: 'TRUSTED NETWORK', tag3: 'FARMER EARNINGS',
   },
@@ -68,6 +68,7 @@ const arcPath = (cx: number, cy: number, r: number, startDeg: number, endDeg: nu
 
 const CX = 250, CY = 250, RADIUS = 150, NODE_R = 28;
 const AUTO_ROTATE_MS = 5000;
+const SLIDER_AUTO_MS = 4000;
 
 const GREEN_600 = '#16a34a';
 const GREEN_700 = '#15803d';
@@ -75,8 +76,15 @@ const GREEN_200 = '#bbf7d0';
 const GREEN_100 = '#dcfce7';
 const GREEN_50  = '#f0fdf4';
 
+const HOW_IT_WORKS_SLIDES = [
+  { id: 1, src: '/how-it-works-slide-1.png' },
+  { id: 2, src: '/how-it-works-slide-2.jfif' },
+  { id: 3, src: '/how-it-works-slide-3.jfif' },
+];
+
 export const HowItWorksSection = () => {
   const [active, setActive] = useState<number | null>(null);
+  const [slideIndex, setSlideIndex] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const startAutoRotate = useCallback((fromId: number) => {
@@ -97,6 +105,14 @@ export const HowItWorksSection = () => {
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [startAutoRotate]);
 
+  useEffect(() => {
+    const sliderTimer = setInterval(() => {
+      setSlideIndex((prev) => (prev + 1) % HOW_IT_WORKS_SLIDES.length);
+    }, SLIDER_AUTO_MS);
+
+    return () => clearInterval(sliderTimer);
+  }, []);
+
   const handleStepClick = useCallback((id: number, isActive: boolean) => {
     const nextId = isActive ? null : id;
     setActive(nextId);
@@ -111,10 +127,21 @@ export const HowItWorksSection = () => {
       className="relative py-24 overflow-hidden"
       style={{ background: 'linear-gradient(160deg, #f0fdf4 0%, #ffffff 50%, #f0fdf4 100%)' }}
     >
-      {/* Attachment-inspired operational background theme with transparency */}
+      {/* Attachment-inspired operational background theme with improved clarity */}
       <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute inset-0 bg-[url('/how-it-works-bg.png')] bg-cover bg-center bg-no-repeat opacity-20" />
-        <div className="absolute inset-0 bg-green-50/80 backdrop-blur-[1px]" />
+        <AnimatePresence mode="wait">
+          <motion.img
+            key={`bg-${HOW_IT_WORKS_SLIDES[slideIndex]!.id}`}
+            src={HOW_IT_WORKS_SLIDES[slideIndex]!.src}
+            alt="How it works background"
+            className="absolute inset-0 h-full w-full object-cover contrast-110 saturate-110"
+            initial={{ opacity: 0, scale: 1.04, x: 24 }}
+            animate={{ opacity: 0.45, scale: 1, x: 0 }}
+            exit={{ opacity: 0, scale: 0.98, x: -24 }}
+            transition={{ duration: 0.9, ease: 'easeOut' }}
+          />
+        </AnimatePresence>
+        <div className="absolute inset-0 bg-white/26 md:bg-white/18" />
       </div>
 
       {/* Existing texture and accents kept intact */}

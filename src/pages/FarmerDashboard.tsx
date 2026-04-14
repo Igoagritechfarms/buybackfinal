@@ -155,7 +155,7 @@ export const FarmerDashboard = () => {
         <div className="max-w-6xl mx-auto px-6 pt-24 pb-10">
           <Link to="/" className="inline-flex items-center gap-1.5 text-green-200 hover:text-white text-sm mb-6 transition-colors">
             <ArrowLeft size={15} />
-            Back to IGOBuyback
+            Back to IGO Farmgate Mandi
           </Link>
 
           <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
@@ -342,7 +342,7 @@ export const FarmerDashboard = () => {
           {/* Ledger Footer */}
           <div className="px-6 py-3 border-t border-gray-50 flex items-center justify-between text-xs text-gray-400">
             <span>Total earnings (paid): <strong className="text-green-700">₹{totalEarnings.toLocaleString('en-IN')}</strong></span>
-            <span>Ledger maintained by IGOBuyback · All amounts in INR</span>
+            <span>Ledger maintained by IGO Farmgate Mandi · All amounts in INR</span>
           </div>
         </div>
 

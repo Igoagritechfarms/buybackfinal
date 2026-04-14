@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronRight, Flame, Sparkles, TrendingUp } from 'lucide-react';
 import { PRODUCTS } from '../../config/products';
+import { ProductImage } from '../ProductImage';
 import { CATEGORY_STYLES } from '../../config/category-styles';
 import { getTopByDemand } from '../../lib/product-utils';
 import { MainCategory } from '../../config/categories';
@@ -38,7 +39,7 @@ export const HighDemandProductsSection = () => {
                 High-Demand Products
               </h2>
               <p className="text-gray-500 text-sm mt-0.5">
-                Best-selling produce with guaranteed buyback prices
+                Best-selling produce with transparent farmgate mandi prices
               </p>
             </div>
           </div>
@@ -64,27 +65,15 @@ export const HighDemandProductsSection = () => {
                 {/* ── Image ── */}
                 <div className="relative h-48 overflow-hidden flex-shrink-0"
                      style={{ backgroundColor: style?.lightColor ?? '#f0fdf4' }}>
-                  {product.imageUrl ? (
-                    <img
-                      src={product.imageUrl}
-                      alt={product.name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                      referrerPolicy="no-referrer"
-                      onError={(e) => {
-                        const img = e.target as HTMLImageElement;
-                        img.style.display = 'none';
-                        const parent = img.parentElement!;
-                        const fallback = document.createElement('div');
-                        fallback.style.cssText = `width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:3.5rem;background:${style?.lightColor ?? '#f0fdf4'}`;
-                        fallback.textContent = product.emoji ?? '🥬';
-                        parent.appendChild(fallback);
-                      }}
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-5xl select-none">
-                      {product.emoji}
-                    </div>
-                  )}
+                  <ProductImage
+                    src={product.imageUrl}
+                    alt={product.name}
+                    emoji={product.emoji}
+                    className="h-full w-full"
+                    imageClassName="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    fallbackClassName="flex h-full w-full items-center justify-center text-5xl select-none"
+                    backgroundColor={style?.lightColor ?? '#f0fdf4'}
+                  />
 
                   {/* gradient overlay */}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />

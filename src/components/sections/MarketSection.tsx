@@ -73,7 +73,7 @@ export const MarketSection = () => {
             <div className="card p-5 bg-agri-green-600 text-white border-0">
               <h4 className="font-bold mb-2">Weekly Price Alert</h4>
               <p className="text-agri-green-100 text-sm mb-4">
-                Get WhatsApp updates every Monday with the latest buyback rates.
+                Get WhatsApp updates every Monday with the latest farmgate mandi rates.
               </p>
               <a
                 href="https://wa.me/919999999999?text=Subscribe%20to%20price%20alerts"

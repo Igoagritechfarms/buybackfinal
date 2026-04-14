@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { ChevronRight, TrendingUp, Leaf, Flame } from 'lucide-react';
 import { PRODUCTS } from '../../config/products';
+import { ProductImage } from '../ProductImage';
 import { CATEGORIES } from '../../config/categories';
 import { CATEGORY_STYLES } from '../../config/category-styles';
 import { filterInSeason, getTopByDemand } from '../../lib/product-utils';
@@ -26,7 +27,7 @@ export const ProductsSection = () => {
   const featuredLabel    = seasonalProducts.length >= 4 ? 'Now in Season' : 'High-Demand Products';
   const featuredSub      = seasonalProducts.length >= 4
     ? `${seasonalProducts.length} fresh seasonal products available`
-    : 'Best-selling produce with guaranteed buyback prices';
+    : 'Best-selling produce with transparent farmgate mandi prices';
 
   return (
     <section className="py-20 bg-white">
@@ -178,15 +179,14 @@ export const ProductsSection = () => {
                     className="relative h-40 overflow-hidden shrink-0"
                     style={{ backgroundColor: style.lightColor }}
                   >
-                    <img
+                    <ProductImage
                       src={product.imageUrl}
                       alt={product.name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                      referrerPolicy="no-referrer"
-                      onError={(e) => {
-                        const t = e.target as HTMLImageElement;
-                        t.style.display = 'none';
-                      }}
+                      emoji={product.emoji}
+                      className="h-full w-full"
+                      imageClassName="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      fallbackClassName="flex h-full w-full items-center justify-center text-5xl select-none"
+                      backgroundColor={style.lightColor}
                     />
                     {/* Gradient overlay */}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />

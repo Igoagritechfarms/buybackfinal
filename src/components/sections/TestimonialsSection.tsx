@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'motion/react';
-import { Quote, Star, Award, Play, ChevronLeft, ChevronRight, Film } from 'lucide-react';
+import { Quote, Star, Award, Play, ChevronLeft, ChevronRight } from 'lucide-react';
 import { getVideoTestimonials, getTextTestimonials } from '../../config/testimonials';
 
 /**
@@ -8,7 +8,7 @@ import { getVideoTestimonials, getTextTestimonials } from '../../config/testimon
  * Phase 0 Feature: Video testimonials with carousel + text reviews
  */
 export const TestimonialsSection = () => {
-  const [activeTab, setActiveTab] = useState<'video' | 'text'>('video');
+  const [activeTab, setActiveTab] = useState<'video' | 'text'>('text');
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
   const [playingVideoId, setPlayingVideoId] = useState<string | null>(null);
 
@@ -70,17 +70,6 @@ export const TestimonialsSection = () => {
           viewport={{ once: true }}
           className="flex justify-center gap-4 mb-12"
         >
-          <button
-            onClick={() => setActiveTab('video')}
-            className={`px-6 py-3 rounded-full font-bold transition-all flex items-center gap-2 ${
-              activeTab === 'video'
-                ? 'bg-agri-green-600 text-white shadow-lg'
-                : 'bg-agri-earth-100 text-agri-earth-700 hover:bg-agri-earth-200'
-            }`}
-          >
-            <Film size={18} />
-            Farmer Stories (Video)
-          </button>
           <button
             onClick={() => setActiveTab('text')}
             className={`px-6 py-3 rounded-full font-bold transition-all flex items-center gap-2 ${
@@ -240,7 +229,7 @@ export const TestimonialsSection = () => {
                 viewport={{ once: true, margin: '-100px' }}
                 transition={{ delay: i * 0.12, duration: 0.6 }}
                 whileHover={{ y: -8, boxShadow: '0 25px 50px rgba(22, 163, 74, 0.15)' }}
-                className="group"
+                className="group relative"
               >
                 {/* Card background with gradient */}
                 <div className="absolute inset-0 bg-gradient-to-br from-white via-agri-earth-50 to-agri-green-50/30 rounded-2xl border border-agri-earth-100 shadow-lg transition-all duration-300" />
@@ -302,6 +291,16 @@ export const TestimonialsSection = () => {
                       src={r.image}
                       alt={r.name}
                       className="w-12 h-12 rounded-full object-cover border-2 border-agri-green-200 shadow-md"
+                      loading="lazy"
+                      decoding="async"
+                      onError={(event) => {
+                        const img = event.currentTarget;
+                        if (img.dataset.fallbackApplied === 'true') {
+                          return;
+                        }
+                        img.dataset.fallbackApplied = 'true';
+                        img.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(r.name)}&background=dcfce7&color=166534&size=96&rounded=true`;
+                      }}
                       referrerPolicy="no-referrer"
                     />
                     <div className="flex-grow">

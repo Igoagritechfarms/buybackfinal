@@ -34,7 +34,7 @@ interface EmailNotificationPreferencesProps {
 }
 
 export const EmailNotificationPreferences: React.FC<EmailNotificationPreferencesProps> = ({
-  userEmail = 'farmer@igobuyback.com',
+  userEmail = 'farmer@igofarmgate.com',
   onPreferenceChange
 }) => {
   const {

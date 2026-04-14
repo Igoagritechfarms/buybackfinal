@@ -414,7 +414,7 @@ export const Market = () => {
         <div className="card overflow-hidden">
           <div className="p-6 border-b border-agri-earth-100 flex items-center justify-between">
             <div>
-              <h2 className="font-bold text-agri-earth-900">Today's Buyback Rates</h2>
+              <h2 className="font-bold text-agri-earth-900">Today's Farmgate Rates</h2>
               <p className="text-sm text-agri-earth-500">
                 IGO guaranteed prices — no negotiation needed · {filteredProducts.length} of{' '}
                 {PRODUCTS.length} products

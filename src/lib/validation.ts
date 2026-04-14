@@ -6,8 +6,34 @@ import { PRODUCTS } from '../config/products';
  * Using Zod for type-safe validation with runtime checks
  */
 
-// Phone validation - Indian mobile numbers (10 digits, starting with 6-9)
+const OTP_TEST_MODE = String(import.meta.env.VITE_OTP_TEST_MODE || 'false').toLowerCase() === 'true';
+const OTP_TEST_PHONE = String(import.meta.env.VITE_OTP_TEST_PHONE || '1234567890').trim();
+
+function isValidIndianPhone(phone: string) {
+  if (/^[6-9]\d{9}$/.test(phone)) {
+    return true;
+  }
+
+  if (OTP_TEST_MODE && phone === OTP_TEST_PHONE) {
+    return true;
+  }
+
+  return false;
+}
+
+// Country code validation - Indian numbers only
+const countryCodeSchema = z.literal('+91', {
+  errorMap: () => ({ message: 'Only Indian phone numbers (+91) are supported' }),
+});
+
+// Local phone validation - 10-digit Indian number
 const phoneSchema = z
+  .string()
+  .regex(/^\d{10}$/, 'Please enter a valid 10-digit mobile number')
+  .refine(isValidIndianPhone, 'Please enter a valid Indian mobile number');
+
+// Contact phone validation kept for local lead format
+const contactPhoneSchema = z
   .string()
   .regex(/^[6-9]\d{9}$/, 'Please enter a valid 10-digit mobile number');
 
@@ -21,6 +47,7 @@ const productIdSchema = z
  */
 export const sellerSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters').max(50, 'Name is too long'),
+  countryCode: countryCodeSchema,
   phone: phoneSchema,
   otp: z.string().length(6, 'OTP must be 6 digits').optional().or(z.literal('')),
   location: z.string().min(3, 'Location must be at least 3 characters').max(100, 'Location is too long'),
@@ -28,8 +55,8 @@ export const sellerSchema = z.object({
   quantity: z.number().positive('Quantity must be greater than 0').max(10000, 'Quantity seems too high'),
   price: z.number().positive('Price must be greater than 0').max(10000, 'Price seems too high'),
   harvestDate: z.string().refine((date) => new Date(date) <= new Date(), 'Harvest date must be in the past or today'),
-  transport: z.enum(['needed', 'self'], {
-    errorMap: () => ({ message: 'Please select a transport option' }),
+  transport: z.literal('self', {
+    errorMap: () => ({ message: 'Only self transport is supported.' }),
   }),
 });
 
@@ -40,6 +67,7 @@ export type SellerFormData = z.infer<typeof sellerSchema>;
  */
 export const buyerSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters').max(50, 'Name is too long'),
+  countryCode: countryCodeSchema,
   phone: phoneSchema,
   otp: z.string().length(6, 'OTP must be 6 digits').optional().or(z.literal('')),
   location: z.string().min(3, 'Location must be at least 3 characters').max(100, 'Location is too long'),
@@ -56,7 +84,7 @@ export type BuyerFormData = z.infer<typeof buyerSchema>;
 export const contactSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters').max(50, 'Name is too long'),
   email: z.string().email('Please enter a valid email address'),
-  phone: phoneSchema,
+  phone: contactPhoneSchema,
   subject: z.string().min(5, 'Subject must be at least 5 characters').max(100, 'Subject is too long'),
   message: z.string().min(10, 'Message must be at least 10 characters').max(1000, 'Message is too long'),
 });

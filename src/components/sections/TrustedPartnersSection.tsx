@@ -274,16 +274,12 @@ export const TrustedPartnersSection = () => (
           <p className="text-green-300 text-base font-medium mb-4">
             Direct farmer collective partnership · FPO network integration
           </p>
-          <p className="text-green-100/80 text-sm leading-relaxed max-w-lg">
-            Assured buyback partnership with transparent pricing and reliable market access for farmers.
-          </p>
-
           {/* Stat badges */}
           <div className="flex flex-wrap gap-3 mt-5 justify-center md:justify-start">
             {[
-              { icon: <Users size={14}/>,    val: '1,200+', sub: 'Partner Farmers'    },
-              { icon: <ShoppingBag size={14}/>, val: 'FPO',  sub: 'Network Integration' },
-              { icon: <Leaf size={14}/>,     val: '26',     sub: 'Crop Verticals'     },
+              { icon: <Users size={14}/>, val: '1,000+', sub: 'Farmers' },
+              { icon: <Leaf size={14}/>, val: '24/7', sub: 'Technical Support' },
+              { icon: <ShoppingBag size={14}/>, val: 'Restaurant', sub: 'Cloud Kitchen Partners' },
             ].map((s, i) => (
               <motion.div
                 key={i}

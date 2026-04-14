@@ -245,7 +245,7 @@ export const DailyMarketTrendsSection = () => {
             Track daily mandi and wholesale market price movement across key cities.
           </p>
           <p className="mx-auto mt-2 max-w-3xl text-sm text-gray-500">
-            Monitor daily market rates from major trading locations to make smarter sell decisions with IGO Buyback.
+            Monitor daily market rates from major trading locations to make smarter sell decisions with IGO Farmgate Mandi.
           </p>
         </motion.div>
 
@@ -273,24 +273,26 @@ export const DailyMarketTrendsSection = () => {
               </button>
             </div>
 
-            <div className="mb-5 flex flex-wrap items-center gap-3">
-              <label htmlFor="trend-crop" className="text-xs font-bold uppercase tracking-wide text-gray-500">
-                Product
-              </label>
-              <select
-                id="trend-crop"
-                value={selectedCrop}
-                onChange={(event) => setSelectedCrop(event.target.value as Crop)}
-                className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-800 outline-none transition focus:border-green-400"
-              >
-                {CROPS.map((crop) => (
-                  <option key={crop} value={crop}>
-                    {crop}
-                  </option>
-                ))}
-              </select>
+            <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+              <div className="flex flex-wrap items-center gap-3">
+                <label htmlFor="trend-crop" className="text-xs font-bold uppercase tracking-wide text-gray-500">
+                  Product
+                </label>
+                <select
+                  id="trend-crop"
+                  value={selectedCrop}
+                  onChange={(event) => setSelectedCrop(event.target.value as Crop)}
+                  className="min-w-[170px] rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-800 outline-none transition focus:border-green-400"
+                >
+                  {CROPS.map((crop) => (
+                    <option key={crop} value={crop}>
+                      {crop}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-              <div className="flex items-center gap-1 rounded-xl bg-gray-100 p-1">
+              <div className="flex w-full items-center justify-between gap-1 rounded-xl bg-gray-100 p-1 sm:w-auto sm:justify-start">
                 {RANGES.map((range) => (
                   <button
                     key={range}
@@ -306,21 +308,23 @@ export const DailyMarketTrendsSection = () => {
               </div>
             </div>
 
-            <div className="mb-4 flex flex-wrap items-center gap-2">
-              {(['All', ...CITIES] as const).map((location) => (
-                <button
-                  key={location}
-                  type="button"
-                  onClick={() => setSelectedLocation(location)}
-                  className={`rounded-full border px-4 py-2 text-xs font-bold transition ${
-                    selectedLocation === location
-                      ? 'border-green-600 bg-green-600 text-white shadow-md shadow-green-200'
-                      : 'border-gray-200 bg-white text-gray-600 hover:border-green-300 hover:text-green-700'
-                  }`}
-                >
-                  {location}
-                </button>
-              ))}
+            <div className="mb-4 -mx-1 overflow-x-auto px-1">
+              <div className="flex w-max items-center gap-2 sm:w-auto sm:flex-wrap">
+                {(['All', ...CITIES] as const).map((location) => (
+                  <button
+                    key={location}
+                    type="button"
+                    onClick={() => setSelectedLocation(location)}
+                    className={`whitespace-nowrap rounded-full border px-4 py-2 text-xs font-bold transition ${
+                      selectedLocation === location
+                        ? 'border-green-600 bg-green-600 text-white shadow-md shadow-green-200'
+                        : 'border-gray-200 bg-white text-gray-600 hover:border-green-300 hover:text-green-700'
+                    }`}
+                  >
+                    {location}
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="mb-3 flex flex-wrap items-center gap-4">
@@ -330,7 +334,7 @@ export const DailyMarketTrendsSection = () => {
                   {city}
                 </span>
               ))}
-              <span className="ml-auto text-[11px] font-semibold text-gray-500">Price in ₹ per kg</span>
+              <span className="w-full text-[11px] font-semibold text-gray-500 sm:ml-auto sm:w-auto">Price in ₹ per kg</span>
             </div>
 
             <div className="h-[350px] w-full md:h-[380px]">

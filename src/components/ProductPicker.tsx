@@ -1,12 +1,13 @@
 /**
  * ProductPicker Component
- * Advanced product selection modal for forms (BuybackForm, EnrollmentForm)
+ * Advanced product selection modal for forms (FarmgateForm, EnrollmentForm)
  * Features: Category tabs, search, filters, visual product cards
  */
 
 import React, { useState, useMemo, useCallback } from 'react';
 import { Search, X, ChevronDown } from 'lucide-react';
 import { PRODUCTS, Product } from '../config/products';
+import { ProductImage } from './ProductImage';
 import { CATEGORIES } from '../config/categories';
 import { CATEGORY_STYLES, SUBCATEGORY_STYLES } from '../config/category-styles';
 import {
@@ -308,12 +309,20 @@ const ProductPicker: React.FC<ProductPickerProps> = ({
                     >
                       {/* Image Container */}
                       <div
-                        className="h-32 bg-cover bg-center relative overflow-hidden"
+                        className="h-32 relative overflow-hidden"
                         style={{
-                          backgroundImage: `url(${product.imageUrl})`,
                           backgroundColor: subcatStyle?.lightColor,
                         }}
                       >
+                        <ProductImage
+                          src={product.imageUrl}
+                          alt={product.name}
+                          emoji={product.emoji}
+                          className="h-full w-full"
+                          imageClassName="h-full w-full object-cover"
+                          fallbackClassName="flex h-full w-full items-center justify-center text-4xl select-none"
+                          backgroundColor={subcatStyle?.lightColor}
+                        />
                         {/* Overlay with demand badge */}
                         <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
                         <div className="absolute top-2 right-2 px-2 py-1 rounded text-xs font-bold text-white bg-red-500">

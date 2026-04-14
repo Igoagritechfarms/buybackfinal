@@ -106,7 +106,7 @@ export const PriceCalculator = () => {
                   <span className="text-xl font-black">₹{net.toLocaleString('en-IN')}</span>
                 </div>
               </div>
-              <p className="text-[11px] text-agri-green-200 mt-3">* Paid within 7 days of pickup. Prices subject to quality inspection.</p>
+              <p className="text-[11px] text-agri-green-200 mt-3">* Paid within 7 days of delivery acknowledgement. Prices subject to quality inspection.</p>
             </motion.div>
           )}
         </AnimatePresence>

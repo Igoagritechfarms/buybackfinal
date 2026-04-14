@@ -1,6 +1,6 @@
 {
-  "name": "IGO Agritech Farms - Buyback Program",
-  "description": "A modern agriculture platform empowering farmers through guaranteed buyback programs and direct market access.",
+  "name": "IGO Farmgate Mandi",
+  "description": "A modern agriculture marketplace platform empowering farmers through direct market access and transparent trading.",
   "requestFramePermissions": [
     "geolocation"
   ]

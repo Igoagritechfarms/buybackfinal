@@ -7,6 +7,7 @@ import {
   ChevronUp, ChevronDown, Layers, IndianRupee, BarChart3,
   ShieldCheck, AlertTriangle, Check,
 } from 'lucide-react';
+import { BrandLogo } from '../components/BrandLogo';
 import { useAdminAuth } from '../contexts/AdminAuthContext';
 import { supabase, MarketPrice } from '../lib/supabase';
 import { toast } from 'sonner';
@@ -265,7 +266,7 @@ export const AdminProducts = () => {
     const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = 'igobuyback-products.csv'; a.click();
+    const a = document.createElement('a'); a.href = url; a.download = 'igofarmgate-mandi-products.csv'; a.click();
     URL.revokeObjectURL(url);
   };
 
@@ -283,24 +284,13 @@ export const AdminProducts = () => {
       {/* ── Admin Header ── */}
       <header className="bg-white border-b border-gray-100 shadow-sm sticky top-0 z-30">
         <div className="max-w-screen-2xl mx-auto px-6 h-16 flex items-center justify-between">
-          {/* Logo */}
-          <Link to="/" className="flex items-center gap-2">
-            <div className="w-9 h-9">
-              <svg viewBox="0 0 60 56" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-                <path d="M8 44 L5 14 L54 14 L51 44 Z" stroke="#84CC16" strokeWidth="5" strokeLinejoin="round" fill="none"/>
-                <path d="M54 14 C60 6 66 2 72 0" stroke="#84CC16" strokeWidth="5" strokeLinecap="round" fill="none"/>
-                <path d="M5 14 L2 7" stroke="#84CC16" strokeWidth="5" strokeLinecap="round" fill="none"/>
-                <circle cx="18" cy="52" r="5" fill="#555"/>
-                <circle cx="42" cy="52" r="5" fill="#555"/>
-                <path d="M28 40 Q12 20 26 2 Q46 16 28 40Z" fill="#84CC16"/>
-                <path d="M38 38 Q26 18 40 4 Q52 18 38 38Z" fill="#5EA800"/>
-              </svg>
-            </div>
-            <div>
-              <div className="text-sm font-black text-gray-900">IGO<span className="text-lime-500">Buyback</span></div>
-              <div className="text-[10px] text-gray-400 font-semibold uppercase tracking-widest leading-none">Admin Dashboard</div>
-            </div>
-          </Link>
+          <BrandLogo
+            to="/"
+            className="flex flex-col items-start gap-0.5"
+            imageClassName="h-12 w-auto rounded-lg"
+            caption="Admin Dashboard"
+            captionClassName="pl-1 text-[10px] text-gray-400 font-semibold uppercase tracking-widest leading-none"
+          />
 
           {/* Centre badge */}
           <div className="hidden md:flex items-center gap-2 px-4 py-1.5 bg-lime-50 border border-lime-200 rounded-full">
@@ -779,3 +769,4 @@ export const AdminProducts = () => {
     </div>
   );
 };
+

@@ -7,8 +7,8 @@ const PROMISES = [
   {
     icon: ShieldCheck,
     emoji: '🔍',
-    title: 'Fair & Transparent Buyback',
-    desc: 'Every buyback transaction is fully visible — prices, deductions, acceptance criteria, and payment are shown clearly at every stage.',
+    title: 'Fair & Transparent Farmgate Trade',
+    desc: 'Every farmgate transaction is fully visible — prices, deductions, acceptance criteria, and payment are shown clearly at every stage.',
     accent: '#059669',
     light: '#d1fae5',
   },
@@ -16,7 +16,7 @@ const PROMISES = [
     icon: IndianRupee,
     emoji: '📊',
     title: 'Real-time Price Quote',
-    desc: 'Live market-linked buyback quotes give farmers competitive rates with zero hidden commission or deduction surprises.',
+    desc: 'Live market-linked farmgate mandi quotes give farmers competitive rates with zero hidden commission or deduction surprises.',
     accent: '#16a34a',
     light: '#dcfce7',
   },
@@ -39,8 +39,8 @@ const PROMISES = [
   {
     icon: Truck,
     emoji: '🚚',
-    title: 'Reliable Pickup & Warehouse',
-    desc: 'Our logistics team arranges pickup from your farm gate, nearby collection point, or warehouse — tracked and efficient.',
+    title: 'Reliable Self Transport & Warehouse',
+    desc: 'Self transport model with organized intake at nearby collection points and warehouse checkpoints — tracked and efficient.',
     accent: '#15803d',
     light: '#bbf7d0',
   },
@@ -48,7 +48,7 @@ const PROMISES = [
     icon: Leaf,
     emoji: '🌾',
     title: 'Farmer-first Commitment',
-    desc: 'Every process, feature, and policy at IGO Buyback is designed for the benefit of the farmer — not middlemen or traders.',
+    desc: 'Every process, feature, and policy at IGO Farmgate Mandi is designed for the benefit of the farmer — not middlemen or traders.',
     accent: '#4d7c0f',
     light: '#d9f99d',
   },
@@ -192,7 +192,7 @@ export const PromiseSection = () => (
           <div className="w-8 h-8 bg-green-600 rounded-xl flex items-center justify-center">
             <Warehouse size={16} className="text-white" />
           </div>
-          <span className="font-black text-gray-900 text-sm">IGO Group Guaranteed Buyback</span>
+          <span className="font-black text-gray-900 text-sm">IGO Farmgate Mandi</span>
         </div>
         <div className="hidden sm:block w-px h-5 bg-gray-200" />
         <div className="flex flex-wrap gap-2 justify-center">

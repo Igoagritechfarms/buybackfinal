@@ -8,6 +8,7 @@ import React, { useState, useMemo } from 'react';
 import { motion } from 'motion/react';
 import { Search, ChevronRight, TrendingUp, Leaf, Zap, Crown, ArrowRight } from 'lucide-react';
 import { PRODUCTS, Product } from '../config/products';
+import { ProductImage } from '../components/ProductImage';
 import { CATEGORIES } from '../config/categories';
 import { CATEGORY_STYLES, SUBCATEGORY_STYLES } from '../config/category-styles';
 import {
@@ -399,12 +400,20 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
     >
       {/* Image */}
       <div
-        className="h-32 bg-cover bg-center relative overflow-hidden group-hover:brightness-110 transition"
+        className="h-32 relative overflow-hidden group-hover:brightness-110 transition"
         style={{
-          backgroundImage: `url(${product.imageUrl})`,
           backgroundColor: categoryStyle.lightColor,
         }}
       >
+        <ProductImage
+          src={product.imageUrl}
+          alt={product.name}
+          emoji={product.emoji}
+          className="h-full w-full"
+          imageClassName="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500"
+          fallbackClassName="flex h-full w-full items-center justify-center text-4xl select-none"
+          backgroundColor={categoryStyle.lightColor}
+        />
         <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
         {product.demand && (
           <div className="absolute top-2 right-2 px-2 py-1 rounded text-xs font-bold text-white bg-red-500">

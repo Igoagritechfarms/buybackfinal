@@ -6,9 +6,9 @@ import {
 } from 'lucide-react';
 
 /**
- * Hero Section — IGO Farmgate mandi
+ * Hero Section — IGO Farmgate Mandi
  * "Sell Direct. Earn Better. Get Paid On Time"
- * Assured Buyback · Fast Quality Verification · Technical Support · Trusted Buyer Network
+ * Assured Farmgate Mandi · Fast Quality Verification · Technical Support · Trusted Buyer Network
  */
 export const HeroSection = () => (
   <section className="relative min-h-screen flex items-center pt-16 overflow-hidden bg-gradient-to-br from-green-800 via-green-700 to-green-600">
@@ -80,7 +80,7 @@ export const HeroSection = () => (
               transition={{ duration: 0.8, delay: 0.35 }}
               className="text-xl md:text-2xl text-green-50 max-w-xl leading-relaxed font-bold"
             >
-              <span className="font-extrabold">IGO Farmgate mandi</span>{' '}
+              <span className="font-extrabold">IGO Farmgate  Mandi</span>{' '}
               is where your harvest gets the{' '}
               <span>
                 value it deserves
@@ -149,7 +149,7 @@ export const HeroSection = () => (
                 className="inline-flex items-center gap-2 px-8 py-4 bg-white/10 hover:bg-white/20 text-white font-bold rounded-2xl border border-white/30 transition-all text-base backdrop-blur"
               >
                 <TrendingUp size={17} />
-                See Buyback Rates
+                See Farmgate Rates
               </Link>
             </motion.div>
           </motion.div>
@@ -201,7 +201,7 @@ export const HeroSection = () => (
           >
             <h3 className="text-lg font-black text-white mb-5 flex items-center gap-2">
               <Award size={20} className="text-lime-300" />
-              IGO Farmgate mandi at a Glance
+              IGO Farmgate Mandi at a Glance
             </h3>
             <div className="grid grid-cols-2 gap-4">
               {[
@@ -238,10 +238,10 @@ export const HeroSection = () => (
             </p>
             <div className="space-y-3">
               {[
-                { emoji: '🤝', text: 'Assured buyback support for selected produce' },
+                { emoji: '🤝', text: 'Assured farmgate mandi support for selected produce' },
                 { emoji: '📈', text: 'Best price guidance based on live demand' },
                 { emoji: '✅', text: 'Quick quality check and approval process' },
-                { emoji: '🚛', text: 'Pickup coordination from farm location' },
+                { emoji: '🚛', text: 'Self transport intake coordination' },
                 { emoji: '🌐', text: 'Trusted IGO network across India' },
               ].map((item, i) => (
                 <motion.div

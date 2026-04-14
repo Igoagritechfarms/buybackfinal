@@ -80,7 +80,7 @@ create table if not exists transactions (
   otp         text,
   otp_verified boolean default false,
   status      text default 'pending' check (status in ('pending', 'verified', 'matched', 'completed', 'cancelled')),
-  transport   text check (transport in ('needed', 'self')),
+  transport   text check (transport in ('self')),
   harvest_date date,
   notes       text
 );
@@ -158,7 +158,7 @@ export type Transaction = {
   otp?: string;
   otp_verified?: boolean;
   status?: 'pending' | 'verified' | 'matched' | 'completed' | 'cancelled';
-  transport?: 'needed' | 'self';
+  transport?: 'self';
   harvest_date?: string;
   notes?: string;
 };
@@ -286,16 +286,24 @@ export function subscribeToMarketPrices(
   }
 
   const subscription = supabase
-    .from('market_prices')
-    .on('*', (payload) => {
-      // Fetch fresh data on any change
-      getMarketPrices()
-        .then(callback)
-        .catch(onError || console.error);
-    })
-    .subscribe();
+    .channel('market_prices_changes')
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'market_prices' },
+      () => {
+        // Fetch fresh data on any change
+        getMarketPrices()
+          .then(callback)
+          .catch(onError || console.error);
+      }
+    )
+    .subscribe((status) => {
+      if (status === 'CHANNEL_ERROR' && onError) {
+        onError(new Error('Failed to setup market price subscription.'));
+      }
+    });
 
   return () => {
-    subscription.unsubscribe();
+    void supabase.removeChannel(subscription);
   };
 }

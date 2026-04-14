@@ -168,7 +168,7 @@ export const EnrollmentForm = () => {
               <input type="checkbox" className="mt-1 accent-agri-green-600"
                 checked={form.agreeToTerms} onChange={e => set('agreeToTerms', e.target.checked)} required />
               <span className="text-xs text-agri-earth-500 leading-relaxed">
-                I agree to be contacted by IGO Agritech on WhatsApp/phone for buyback enrollment and price updates.
+                I agree to be contacted by IGO Agritech on WhatsApp/phone for farmgate mandi enrollment and price updates.
               </span>
             </label>
 

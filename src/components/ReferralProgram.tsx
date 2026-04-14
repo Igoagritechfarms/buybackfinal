@@ -114,7 +114,7 @@ export const ReferralProgram = () => {
   const [selectedTab, setSelectedTab] = useState<'overview' | 'friends' | 'rewards'>('overview');
   const [totalEarnings, setTotalEarnings] = useState(400);
   const referralCode = 'IGO-RAMESH-2024';
-  const referralLink = `https://igobuyback.com/join?ref=${referralCode}`;
+  const referralLink = `https://igofarmgate.com/join?ref=${referralCode}`;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(referralLink);

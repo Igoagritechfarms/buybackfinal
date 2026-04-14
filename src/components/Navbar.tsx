@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { Menu, X, ChevronDown, ShoppingCart } from 'lucide-react';
+import { BrandLogo } from './BrandLogo';
 import { LanguageToggle } from './LanguageToggle';
 import { useI18n } from '../lib/i18n';
 
@@ -26,7 +27,9 @@ export const Navbar = () => {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  useEffect(() => { setIsMobileOpen(false); }, [location]);
+  useEffect(() => {
+    setIsMobileOpen(false);
+  }, [location]);
 
   const navBg = isScrolled || !isHome
     ? 'bg-white shadow-md border-b border-gray-100'
@@ -37,35 +40,16 @@ export const Navbar = () => {
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-400 ${navBg}`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
-
-        {/* ── Logo ── */}
         <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-          <Link to="/" className="flex items-center gap-2.5 shrink-0">
-            {/* IGOBuyback cart + leaf icon */}
-            <div className="w-10 h-10 flex items-center justify-center bg-green-600 rounded-xl shadow-sm">
-              <svg viewBox="0 0 60 56" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-6 h-6">
-                <path d="M8 44 L5 14 L54 14 L51 44 Z" stroke="white" strokeWidth="5" strokeLinejoin="round" fill="none"/>
-                <path d="M5 14 L2 7" stroke="white" strokeWidth="5" strokeLinecap="round"/>
-                <circle cx="18" cy="52" r="5" fill="white" opacity="0.9"/>
-                <circle cx="42" cy="52" r="5" fill="white" opacity="0.9"/>
-                <path d="M28 40 Q12 20 26 2 Q46 16 28 40Z" fill="#84CC16"/>
-                <path d="M38 38 Q26 18 40 4 Q52 18 38 38Z" fill="#A3E635" opacity="0.85"/>
-              </svg>
-            </div>
-
-            {/* Brand name — always visible */}
-            <div>
-              <div className="text-lg font-black tracking-tight leading-none text-gray-900">
-                IGO <span className="text-green-600">Farmgate mandi</span>
-              </div>
-              <div className="text-[9px] font-bold leading-none uppercase tracking-[0.15em] text-gray-400 mt-0.5">
-                Powered by IGO Group
-              </div>
-            </div>
-          </Link>
+          <BrandLogo
+            to="/"
+            className="flex flex-col items-start justify-center gap-0.5"
+            imageClassName="h-10 w-auto sm:h-12"
+            caption="Powered by IGO Group"
+            captionClassName="pl-1 text-[9px] font-bold leading-none uppercase tracking-[0.15em] text-gray-400"
+          />
         </motion.div>
 
-        {/* ── Desktop Nav ── */}
         <nav className="hidden md:flex items-center gap-0.5 flex-1 justify-center">
           {navLinks.map((link, index) => (
             <motion.div
@@ -95,7 +79,6 @@ export const Navbar = () => {
           ))}
         </nav>
 
-        {/* ── Right Side ── */}
         <div className="hidden md:flex items-center gap-2">
           <LanguageToggle />
 
@@ -118,7 +101,6 @@ export const Navbar = () => {
           </motion.div>
         </div>
 
-        {/* ── Mobile Toggle ── */}
         <motion.button
           onClick={() => setIsMobileOpen(!isMobileOpen)}
           className="md:hidden p-2 rounded-xl text-gray-600 hover:bg-gray-100 transition-all duration-200"
@@ -131,7 +113,6 @@ export const Navbar = () => {
         </motion.button>
       </div>
 
-      {/* ── Mobile Menu ── */}
       <AnimatePresence>
         {isMobileOpen && (
           <motion.div

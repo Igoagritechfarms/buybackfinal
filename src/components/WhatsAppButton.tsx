@@ -2,7 +2,7 @@ import { motion } from 'motion/react';
 
 export const WhatsAppButton = () => (
   <motion.a
-    href="https://wa.me/919999999999?text=Hello%20IGO%20Agritech%2C%20I%20want%20to%20know%20more%20about%20the%20buyback%20program."
+    href="https://wa.me/919999999999?text=Hello%20IGO%20Agritech%2C%20I%20want%20to%20know%20more%20about%20the%20IGO%20Farmgate%20Mandi%20program."
     target="_blank"
     rel="noopener noreferrer"
     initial={{ scale: 0, opacity: 0 }}

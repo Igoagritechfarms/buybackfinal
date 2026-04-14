@@ -66,7 +66,7 @@ export const SellPage = () => (
               {[
                 { step: '1', icon: '📋', title: 'Register', desc: 'Fill in farm & produce details' },
                 { step: '2', icon: '✓', title: 'Get Quote', desc: 'Receive fair market price' },
-                { step: '3', icon: '🚚', title: 'Pickup', desc: 'Free collection from farm' },
+                { step: '3', icon: '🚚', title: 'Self Transport', desc: 'Farmer-arranged delivery to collection point' },
                 { step: '4', icon: '💰', title: 'Payment', desc: 'Paid within 7 days' },
               ].map((item, i) => (
                 <motion.div

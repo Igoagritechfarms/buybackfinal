@@ -104,7 +104,7 @@ export const Settings = () => {
 
   /* ── Account ── */
   const [name, setName] = useState('Ramesh Kumar');
-  const [email, setEmail] = useState('farmer@igobuyback.com');
+  const [email, setEmail] = useState('farmer@igofarmgate.com');
   const [phone, setPhone] = useState('+91 98765 43210');
   const [location, setLocation] = useState('Madurai, Tamil Nadu');
   const [bio, setBio] = useState('Organic farmer specialising in vegetables and microgreens.');

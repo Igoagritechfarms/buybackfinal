@@ -16,8 +16,8 @@ const CARDS = [
     lightBg: '#f0fdf4',
     borderColor: '#86efac',
     badge: 'Our Vision',
-    headline: "India's Most Trusted Farm Buyback Ecosystem",
-    body: "We're building India's most transparent farm buyback network — connecting farmers, warehouses, and markets with fair pricing, reliable logistics, and direct payments. Zero middlemen.",
+    headline: "India's Most Trusted Farmgate Mandi Ecosystem",
+    body: "We're building India's most transparent farmgate mandi network — connecting farmers, warehouses, and markets with fair pricing, reliable logistics, and direct payments. Zero middlemen.",
     highlights: [
       { Icon: Warehouse,    label: 'Warehouse-to-market flow' },
       { Icon: PackageCheck, label: 'Transparent quality checks' },
@@ -35,10 +35,10 @@ const CARDS = [
     borderColor: '#bef264',
     badge: 'Our Mission',
     headline: 'Simplify Produce Selling for Every Indian Farmers',
-    body: "From farm-gate quality checks to direct bank transfers, we make the selling journey effortless. Fair pricing. Smart pickup logistics. Secure payments — within 7 working days, every time.",
+    body: "From farm-gate quality checks to direct bank transfers, we make the selling journey effortless. Fair pricing. Smart self transport logistics. Secure payments — within 7 working days, every time.",
     highlights: [
       { Icon: HandCoins, label: 'Secure, on-time payment' },
-      { Icon: Truck,     label: 'Farm-gate pickup' },
+      { Icon: Truck,     label: 'Self transport intake' },
       { Icon: Leaf,      label: 'Farmer-first always' },
     ],
     cta: { label: 'How it works', to: '/#how-it-works' },

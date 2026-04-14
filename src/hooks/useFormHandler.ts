@@ -79,7 +79,7 @@ export function useFormHandler<T extends Record<string, any>>(
       e?.preventDefault();
 
       if (!validate()) {
-        return;
+        return false;
       }
 
       setIsSubmitting(true);
@@ -87,9 +87,11 @@ export function useFormHandler<T extends Record<string, any>>(
 
       try {
         await onSubmit(formData);
+        return true;
       } catch (error) {
         const message = error instanceof Error ? error.message : 'An error occurred during submission';
         setSubmitError(message);
+        return false;
       } finally {
         setIsSubmitting(false);
       }

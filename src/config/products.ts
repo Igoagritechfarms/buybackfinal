@@ -31,11 +31,11 @@ export interface Product {
 }
 
 /**
- * All products available for buyback
+ * All products available for farmgate mandi listings
  * Organized by category with consistent pricing and demand levels
  * Update prices here and they'll be consistent across the entire app
  */
-export const PRODUCTS: Product[] = [
+const RAW_PRODUCTS: Product[] = [
   // ─────────────────────────────────────────────────────────────
   // VEGETABLES (40+ items)
   // ─────────────────────────────────────────────────────────────
@@ -3218,6 +3218,15 @@ export const PRODUCTS: Product[] = [
     nutritionHighlight: 'Selenium and B vitamins',
   },
 ];
+
+const REMOTE_IMAGE_FALLBACK_IDS = new Set(['fenugreek-seed']);
+
+export const PRODUCTS: Product[] = RAW_PRODUCTS.map((product) => ({
+  ...product,
+  imageUrl: REMOTE_IMAGE_FALLBACK_IDS.has(product.id)
+    ? product.imageUrl
+    : `/product-images/catalog/${product.id}.jpg`,
+}));
 
 /**
  * Helper function to get products by category
