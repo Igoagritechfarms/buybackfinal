@@ -43,10 +43,13 @@ export const Navbar = () => {
         <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
           <BrandLogo
             to="/"
-            className="flex flex-col items-start justify-center gap-0.5"
+            className="flex items-center gap-3"
             imageClassName="h-10 w-auto sm:h-12"
+            title="IGO Farmgate Mandi"
+            titleClassName="text-sm font-black leading-none tracking-tight text-gray-900 sm:text-base"
+            textBlockClassName="flex flex-col items-start justify-center gap-1"
             caption="Powered by IGO Group"
-            captionClassName="pl-1 text-[9px] font-bold leading-none uppercase tracking-[0.15em] text-gray-400"
+            captionClassName="text-[9px] font-bold leading-none uppercase tracking-[0.15em] text-gray-400"
           />
         </motion.div>
 
