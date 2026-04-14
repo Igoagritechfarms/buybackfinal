@@ -85,23 +85,14 @@ const FarmersFactoryLogoSVG = () => (
    Partner brand logos — each unique, accurate SVG
    ══════════════════════════════════════════════════════ */
 
-/** Swiggy Instamart — orange swoosh icon + bold text */
+/** Swiggy Instamart — supplied brand asset */
 const InstamartLogoSVG = () => (
-  <svg viewBox="0 0 200 80" xmlns="http://www.w3.org/2000/svg">
-    <rect width="200" height="80" rx="10" fill="#fff8f5"/>
-    {/* Orange rounded-square icon */}
-    <rect x="8" y="8" width="56" height="64" rx="16" fill="#fc5734"/>
-    {/* Location-pin / cart mark inside */}
-    <circle cx="36" cy="28" r="11" fill="white"/>
-    <path d="M36 39 Q28 50 28 56 Q28 62 36 62 Q44 62 44 56 Q44 50 36 39Z" fill="white"/>
-    <circle cx="36" cy="28" r="5" fill="#fc5734"/>
-    {/* Text block */}
-    <text x="74" y="34" fontFamily="Arial Black,sans-serif" fontSize="15" fontWeight="900"
-          fill="#222">insta</text>
-    <text x="74" y="54" fontFamily="Arial Black,sans-serif" fontSize="15" fontWeight="900"
-          fill="#fc5734">mart</text>
-    <text x="74" y="68" fontFamily="Arial,sans-serif" fontSize="8.5" fill="#888">by Swiggy</text>
-  </svg>
+  <img
+    src="/partners/instamart.jpg"
+    alt="Swiggy Instamart logo"
+    className="h-full w-full object-contain"
+    loading="lazy"
+  />
 );
 
 /** bigbasket — green bb square + red·green text + TATA tag */
@@ -159,28 +150,14 @@ const ZeptoLogoSVG = () => (
   </svg>
 );
 
-/** TAJ Hotels — gold serif TAJ + geometric ornament */
+/** TAJ Hotels — supplied brand asset */
 const TajLogoSVG = () => (
-  <svg viewBox="0 0 180 90" xmlns="http://www.w3.org/2000/svg">
-    <rect width="180" height="90" rx="10" fill="#faf5e8"/>
-    {/* Geometric star ornament */}
-    <g transform="translate(90,26)">
-      {[0,30,60,90,120,150,180,210,240,270,300,330].map((a, i) => (
-        <line key={i}
-          x1="0" y1="0"
-          x2={Math.cos(a * Math.PI / 180) * 14}
-          y2={Math.sin(a * Math.PI / 180) * 14}
-          stroke="#b8940a" strokeWidth="1.8" strokeLinecap="round"/>
-      ))}
-      <circle cx="0" cy="0" r="4" fill="#b8940a"/>
-    </g>
-    {/* TAJ in gold serif */}
-    <text x="90" y="75" fontFamily="Georgia,'Times New Roman',serif" fontSize="36"
-          fontWeight="700" fill="#b8940a" textAnchor="middle" letterSpacing="10">TAJ</text>
-    {/* Hotels subtitle */}
-    <text x="90" y="86" fontFamily="Arial,sans-serif" fontSize="8" fill="#9a7b0a"
-          textAnchor="middle" letterSpacing="3">HOTELS</text>
-  </svg>
+  <img
+    src="/partners/taj.jpg"
+    alt="TAJ Hotels logo"
+    className="h-full w-full object-contain"
+    loading="lazy"
+  />
 );
 
 /** Amazon — white bg, smile-arrow, bold amazon text */
