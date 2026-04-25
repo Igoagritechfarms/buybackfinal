@@ -1,13 +1,16 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import { I18nProvider } from './lib/i18n';
 import { NotificationProvider } from './lib/notification-context';
 import { AdminAuthProvider } from './contexts/AdminAuthContext';
+import { AuthProvider } from './contexts/AuthContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
 import { LiveChat } from './components/LiveChat';
+import { ProtectedRoute } from './components/ProtectedRoute';
+import { AdminRoute } from './components/AdminRoute';
 import { Home } from './pages/Home';
 import { Market } from './pages/Market';
 import { ProductCatalog } from './pages/ProductCatalog';
@@ -19,7 +22,11 @@ import { Referrals } from './pages/Referrals';
 import { Settings } from './pages/Settings';
 import { AdminLogin } from './pages/AdminLogin';
 import { AdminProducts } from './pages/AdminProducts';
+import { AdminDashboardPage } from './pages/AdminDashboardPage';
 import { FarmerDashboard } from './pages/FarmerDashboard';
+import { PhoneLoginPage } from './pages/PhoneLoginPage';
+import { SignupPage } from './pages/SignupPage';
+import { DashboardPage } from './pages/DashboardPage';
 
 const PageWrapper = ({ children }: { children: React.ReactNode }) => (
   <motion.div
@@ -56,9 +63,36 @@ const AppRoutes = () => {
             {/* Farmer Dashboard */}
             <Route path="/farmer/:farmerId" element={<PageWrapper><FarmerDashboard /></PageWrapper>} />
 
+            {/* Auth Routes */}
+            <Route path="/login" element={<PageWrapper><PhoneLoginPage /></PageWrapper>} />
+            <Route path="/signup" element={<PageWrapper><SignupPage /></PageWrapper>} />
+
+            {/* Protected User Routes */}
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute>
+                  <PageWrapper>
+                    <DashboardPage />
+                  </PageWrapper>
+                </ProtectedRoute>
+              }
+            />
+            <Route path="/account" element={<Navigate to="/dashboard" replace />} />
+
             {/* Admin Routes */}
             <Route path="/admin" element={<PageWrapper><AdminLogin /></PageWrapper>} />
             <Route path="/admin/products" element={<PageWrapper><AdminProducts /></PageWrapper>} />
+            <Route
+              path="/admin/dashboard"
+              element={
+                <AdminRoute>
+                  <PageWrapper>
+                    <AdminDashboardPage />
+                  </PageWrapper>
+                </AdminRoute>
+              }
+            />
 
             <Route path="*" element={<PageWrapper><Home /></PageWrapper>} />
           </Routes>
@@ -75,11 +109,13 @@ export default function App() {
     <ErrorBoundary>
       <NotificationProvider>
         <I18nProvider>
-          <AdminAuthProvider>
-            <Router>
-              <AppRoutes />
-            </Router>
-          </AdminAuthProvider>
+          <AuthProvider>
+            <AdminAuthProvider>
+              <Router>
+                <AppRoutes />
+              </Router>
+            </AdminAuthProvider>
+          </AuthProvider>
         </I18nProvider>
       </NotificationProvider>
     </ErrorBoundary>

@@ -39,8 +39,11 @@ export const EnrollmentForm = () => {
       lead.language = lang;
       await submitLead(lead);
       setStatus('success');
-    } catch (err) {
-      setErrMsg('Could not submit. Please try WhatsApp instead.');
+    } catch (err: any) {
+      console.error('Submission error:', err);
+      // Supabase errors often have a message property
+      const errorMessage = err?.message || 'Could not submit. Please try WhatsApp instead.';
+      setErrMsg(errorMessage);
       setStatus('error');
     }
   };

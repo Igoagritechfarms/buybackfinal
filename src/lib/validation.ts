@@ -1,43 +1,29 @@
 import { z } from 'zod';
 import { PRODUCTS } from '../config/products';
+import {
+  DEFAULT_PHONE_COUNTRY_CODE,
+  SUPPORTED_PHONE_COUNTRY_CODES,
+  getPhoneValidationMessage,
+  isValidMobileNumber,
+  sanitizeCountryCode,
+  sanitizePhoneDigits,
+} from './phone';
 
-/**
- * Validation schemas for all forms
- * Using Zod for type-safe validation with runtime checks
- */
-
-const OTP_TEST_MODE = String(import.meta.env.VITE_OTP_TEST_MODE || 'false').toLowerCase() === 'true';
-const OTP_TEST_PHONE = String(import.meta.env.VITE_OTP_TEST_PHONE || '1234567890').trim();
-
-function isValidIndianPhone(phone: string) {
-  if (/^[6-9]\d{9}$/.test(phone)) {
-    return true;
-  }
-
-  if (OTP_TEST_MODE && phone === OTP_TEST_PHONE) {
-    return true;
-  }
-
-  return false;
-}
-
-// Country code validation - Indian numbers only
-const countryCodeSchema = z.literal('+91', {
-  errorMap: () => ({ message: 'Only Indian phone numbers (+91) are supported' }),
+const countryCodeSchema = z.enum(SUPPORTED_PHONE_COUNTRY_CODES, {
+  errorMap: () => ({
+    message: `Only ${DEFAULT_PHONE_COUNTRY_CODE} mobile numbers are supported right now`,
+  }),
 });
 
-// Local phone validation - 10-digit Indian number
 const phoneSchema = z
   .string()
-  .regex(/^\d{10}$/, 'Please enter a valid 10-digit mobile number')
-  .refine(isValidIndianPhone, 'Please enter a valid Indian mobile number');
+  .transform((value) => sanitizePhoneDigits(value))
+  .refine((value) => value.length === 10, 'Please enter a valid 10-digit mobile number');
 
-// Contact phone validation kept for local lead format
 const contactPhoneSchema = z
   .string()
   .regex(/^[6-9]\d{9}$/, 'Please enter a valid 10-digit mobile number');
 
-// Product ID validation
 const productIdSchema = z
   .string()
   .refine((id) => PRODUCTS.some((p) => p.id === id), 'Please select a valid product');
@@ -47,17 +33,31 @@ const productIdSchema = z
  */
 export const sellerSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters').max(50, 'Name is too long'),
-  countryCode: countryCodeSchema,
+  countryCode: countryCodeSchema.transform((value) => sanitizeCountryCode(value) as '+91'),
   phone: phoneSchema,
   otp: z.string().length(6, 'OTP must be 6 digits').optional().or(z.literal('')),
   location: z.string().min(3, 'Location must be at least 3 characters').max(100, 'Location is too long'),
   product: productIdSchema,
-  quantity: z.number().positive('Quantity must be greater than 0').max(10000, 'Quantity seems too high'),
-  price: z.number().positive('Price must be greater than 0').max(10000, 'Price seems too high'),
-  harvestDate: z.string().refine((date) => new Date(date) <= new Date(), 'Harvest date must be in the past or today'),
+  quantity: z.number().positive('Quantity must be greater than 0').max(1000000, 'Quantity seems too high'),
+  price: z.number().min(0, 'Price cannot be negative').max(100000000, 'Price seems too high'),
+  harvestDate: z.string().refine(
+    (date) => !date || new Date(date) <= new Date(),
+    'Harvest date must be in the past or today'
+  ),
   transport: z.literal('self', {
     errorMap: () => ({ message: 'Only self transport is supported.' }),
   }),
+  quantityUnit: z.string().default('kg'),
+  siteVisitDate: z.string().optional(),
+  scheduleNotes: z.string().max(500, 'Notes too long').optional(),
+}).superRefine((data, ctx) => {
+  if (!isValidMobileNumber(data.countryCode, data.phone)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['phone'],
+      message: getPhoneValidationMessage(data.countryCode),
+    });
+  }
 });
 
 export type SellerFormData = z.infer<typeof sellerSchema>;
@@ -67,13 +67,25 @@ export type SellerFormData = z.infer<typeof sellerSchema>;
  */
 export const buyerSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters').max(50, 'Name is too long'),
-  countryCode: countryCodeSchema,
+  countryCode: countryCodeSchema.transform((value) => sanitizeCountryCode(value) as '+91'),
   phone: phoneSchema,
   otp: z.string().length(6, 'OTP must be 6 digits').optional().or(z.literal('')),
   location: z.string().min(3, 'Location must be at least 3 characters').max(100, 'Location is too long'),
   product: productIdSchema,
-  quantity: z.number().positive('Quantity must be greater than 0').max(10000, 'Quantity seems too high'),
-  price: z.number().positive('Price must be greater than 0').max(10000, 'Price seems too high'),
+  quantity: z.number().positive('Quantity must be greater than 0').max(1000000, 'Quantity seems too high'),
+  price: z.number().min(0, 'Price cannot be negative').max(100000000, 'Price seems too high'),
+  quantityUnit: z.string().default('kg'),
+  deliveryDate: z.string().optional(),
+  siteVisitDate: z.string().optional(),
+  scheduleNotes: z.string().max(500, 'Notes too long').optional(),
+}).superRefine((data, ctx) => {
+  if (!isValidMobileNumber(data.countryCode, data.phone)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['phone'],
+      message: getPhoneValidationMessage(data.countryCode),
+    });
+  }
 });
 
 export type BuyerFormData = z.infer<typeof buyerSchema>;
@@ -92,8 +104,40 @@ export const contactSchema = z.object({
 export type ContactFormData = z.infer<typeof contactSchema>;
 
 /**
+ * Profile Update Schema
+ */
+export const profileSchema = z.object({
+  full_name: z.string().min(2, 'Name must be at least 2 characters').max(80, 'Name is too long'),
+  email: z.string().email('Please enter a valid email').optional().or(z.literal('')),
+});
+
+export type ProfileFormData = z.infer<typeof profileSchema>;
+
+/**
+ * Bank Details Schema
+ */
+export const bankDetailsSchema = z.object({
+  bank_name: z.string().min(2, 'Bank name is required').max(100),
+  account_holder_name: z.string().min(2, 'Account holder name is required').max(100),
+  account_number: z
+    .string()
+    .transform((v) => v.trim())
+    .refine((v) => v.length >= 9, 'Account number must be at least 9 digits')
+    .refine((v) => v.length <= 18, 'Account number is too long')
+    .refine((v) => /^\d+$/.test(v), 'Account number must contain only digits'),
+  ifsc_code: z
+    .string()
+    .transform((v) => v.trim().toUpperCase())
+    .refine(
+      (v) => /^[A-Z]{4}[A-Z0-9]{7}$/.test(v),
+      'IFSC code must be 11 characters (e.g. SBIN0001234)'
+    ),
+});
+
+export type BankDetailsFormData = z.infer<typeof bankDetailsSchema>;
+
+/**
  * Validation error formatter
- * Converts zod errors to user-friendly messages
  */
 export const formatValidationError = (error: z.ZodError): Record<string, string> => {
   const errors: Record<string, string> = {};

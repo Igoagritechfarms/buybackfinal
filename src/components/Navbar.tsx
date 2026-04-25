@@ -1,16 +1,18 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { Menu, X, ChevronDown, ShoppingCart } from 'lucide-react';
+import { Menu, X, ChevronDown, ShoppingCart, User, LogIn } from 'lucide-react';
 import { BrandLogo } from './BrandLogo';
 import { LanguageToggle } from './LanguageToggle';
 import { useI18n } from '../lib/i18n';
+import { useAuth } from '../contexts/AuthContext';
 
 export const Navbar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const location = useLocation();
   const { t } = useI18n();
+  const { user, profile } = useAuth();
   const isHome = location.pathname === '/';
 
   const navLinks = [
@@ -93,6 +95,24 @@ export const Navbar = () => {
             <ChevronDown size={14} />
           </Link>
 
+          {user ? (
+            <Link
+              to="/dashboard"
+              title={profile?.full_name ?? 'My Account'}
+              className="flex items-center justify-center w-9 h-9 rounded-xl bg-green-100 hover:bg-green-200 text-green-700 font-bold text-sm transition-all duration-200"
+            >
+              {profile?.full_name?.charAt(0)?.toUpperCase() ?? <User size={16} />}
+            </Link>
+          ) : (
+            <Link
+              to="/login"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-green-700 hover:bg-green-50 transition-all duration-200"
+            >
+              <LogIn size={15} />
+              Login
+            </Link>
+          )}
+
           <motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}>
             <Link
               to="/sell"
@@ -164,6 +184,25 @@ export const Navbar = () => {
                 >
                   Settings
                 </Link>
+              </motion.div>
+              <motion.div className="pt-1" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.45 }}>
+                {user ? (
+                  <Link
+                    to="/dashboard"
+                    className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-sm font-medium text-green-700 bg-green-50 hover:bg-green-100"
+                  >
+                    <User size={15} />
+                    {profile?.full_name ? `Hi, ${profile.full_name.split(' ')[0]}` : 'My Account'}
+                  </Link>
+                ) : (
+                  <Link
+                    to="/login"
+                    className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50"
+                  >
+                    <LogIn size={15} />
+                    Login
+                  </Link>
+                )}
               </motion.div>
             </div>
           </motion.div>

@@ -1,357 +1,194 @@
-import { createHash, randomInt, randomUUID } from 'crypto';
+/**
+ * OTP Service — creates and validates one-time passwords.
+ *
+ * Storage strategy (in priority order):
+ *   1. Supabase `phone_otps` table (if admin client is configured)
+ *   2. In-memory Map fallback (dev / no DB)
+ *
+ * SMS delivery:
+ *   - TWILIO_ACCOUNT_SID + TWILIO_AUTH_TOKEN set → sends real SMS
+ *   - Otherwise → OTP printed to console + returned in API response (dev mode)
+ *
+ * Required table (run migration in Supabase SQL Editor):
+ *   create table public.phone_otps (
+ *     id          uuid primary key default gen_random_uuid(),
+ *     phone_number text not null,
+ *     otp_code    text not null,
+ *     expires_at  timestamptz not null,
+ *     is_used     boolean not null default false,
+ *     created_at  timestamptz not null default now()
+ *   );
+ */
 
-const OTP_EXPIRY_MS = 5 * 60 * 1000;
-const RESEND_COOLDOWN_MS = 30 * 1000;
-const MAX_VERIFY_ATTEMPTS = 5;
+import './env.js';
+import { createSupabaseAdminClient } from './supabaseAdmin.js';
 
-const otpSessions = new Map();
-const phoneToSession = new Map();
+const OTP_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const OTP_LENGTH = 6;
 
-function hashOtp(otp) {
-  return createHash('sha256').update(otp).digest('hex');
+// ─── In-memory fallback ────────────────────────────────────────────────────────
+/** @type {Map<string, { otp: string, expiresAt: number }>} */
+const memStore = new Map();
+
+// ─── Helpers ───────────────────────────────────────────────────────────────────
+
+export function isTwilioConfigured() {
+  return !!(process.env['TWILIO_ACCOUNT_SID'] && process.env['TWILIO_AUTH_TOKEN']);
 }
 
-function nowMs() {
-  return Date.now();
+function normalizePhone(phone) {
+  return String(phone || '').replace(/\D/g, '');
 }
 
 function generateOtp() {
-  return randomInt(0, 1_000_000).toString().padStart(6, '0');
+  return String(Math.floor(Math.random() * 10 ** OTP_LENGTH)).padStart(OTP_LENGTH, '0');
 }
 
-function cleanupExpiredSessions() {
-  const now = nowMs();
-  for (const [sessionId, session] of otpSessions.entries()) {
-    if (session.expiresAt <= now) {
-      otpSessions.delete(sessionId);
-      phoneToSession.delete(`${session.role}:${session.e164Phone}`);
-    }
-  }
+function normalizeOtp(value) {
+  const digits = String(value ?? '').replace(/\D/g, '');
+  if (!digits) return '';
+  if (digits.length === OTP_LENGTH) return digits;
+  if (digits.length < OTP_LENGTH) return digits.padStart(OTP_LENGTH, '0');
+  return digits.slice(-OTP_LENGTH);
 }
 
-function normalizeCountryCode(countryCode) {
-  const raw = String(countryCode || '').trim();
-  const withPlus = raw ? (raw.startsWith('+') ? raw : `+${raw}`) : '+91';
-  if (withPlus !== '+91') {
-    return null;
-  }
-  return withPlus;
-}
+// ─── Supabase OTP storage ──────────────────────────────────────────────────────
 
-function normalizePhoneDigits(phone) {
-  const digits = String(phone || '').replace(/\D/g, '');
-  if (!/^\d{10}$/.test(digits)) {
-    return null;
-  }
-  return digits;
-}
-
-function isValidIndianMobile(phoneDigits) {
-  return /^[6-9]\d{9}$/.test(phoneDigits);
-}
-
-function isAllowedTestNumber(phoneDigits, allowTestNumber) {
-  return Boolean(allowTestNumber && phoneDigits === '1234567890');
-}
-
-function toE164(countryCode, phone, allowTestNumber = false) {
-  const normalizedCode = normalizeCountryCode(countryCode);
-  const normalizedPhone = normalizePhoneDigits(phone);
-  if (!normalizedCode || !normalizedPhone) {
-    return null;
-  }
-
-  if (!isValidIndianMobile(normalizedPhone) && !isAllowedTestNumber(normalizedPhone, allowTestNumber)) {
-    return null;
-  }
-
-  const e164 = `${normalizedCode}${normalizedPhone}`;
-  if (!/^\+91\d{10}$/.test(e164)) {
-    return null;
-  }
-  return e164;
-}
-
-export function buildOtpMessage(template, otp, role) {
-  const safeRole = role === 'vendor' ? 'Vendor' : role === 'farmer' ? 'Farmer' : 'User';
-  const fallbackTemplate = 'IGO verification code: {{OTP}}. This code is valid for 5 minutes.';
-  const finalTemplate = String(template || fallbackTemplate).trim();
-
-  return finalTemplate.replaceAll('{{OTP}}', otp).replaceAll('{{ROLE}}', safeRole);
-}
-
-function normalizeE164Phone(value) {
-  const raw = String(value || '').trim();
-  if (!raw) {
-    return '';
-  }
-
-  const compact = raw.replace(/[\s()-]/g, '');
-  const hasLeadingPlus = compact.startsWith('+');
-  const digits = compact.replace(/\D/g, '');
-  const normalized = hasLeadingPlus ? `+${digits}` : `+${digits}`;
-
-  if (!/^\+\d{8,15}$/.test(normalized)) {
-    return '';
-  }
-
-  return normalized;
-}
-
-function mapProviderErrorMessage(message) {
-  const normalized = String(message || '').trim();
-  const lowered = normalized.toLowerCase();
-
-  if (
-    lowered.includes('trial accounts cannot send messages to unverified numbers') ||
-    (lowered.includes('unverified') && lowered.includes('twilio'))
-  ) {
-    return 'Cannot send OTP to this number right now. This SMS account can only send to verified numbers. Please verify the number in Twilio or upgrade the account.';
-  }
-
-  return normalized || 'Failed to send SMS OTP.';
-}
-
-function getSessionByPhoneRole(role, e164Phone) {
-  const lookupKey = `${role}:${e164Phone}`;
-  const existingSessionId = phoneToSession.get(lookupKey);
-  if (!existingSessionId) return null;
-
-  const session = otpSessions.get(existingSessionId);
-  if (!session) {
-    phoneToSession.delete(lookupKey);
-    return null;
-  }
-
-  return session;
-}
-
-export function createOrResendOtpSession({
-  countryCode,
-  phone,
-  role = 'user',
-  allowTestNumber = false,
-  otpOverride,
-}) {
-  cleanupExpiredSessions();
-
-  const e164Phone = toE164(countryCode, phone, allowTestNumber);
-  if (!e164Phone) {
-    return {
-      ok: false,
-      status: 400,
-      error: 'Please enter a valid 10-digit Indian mobile number.',
-    };
-  }
-
-  const normalizedRole = String(role || 'user').trim().toLowerCase() || 'user';
-  const now = nowMs();
-  const existing = getSessionByPhoneRole(normalizedRole, e164Phone);
-
-  if (existing && !existing.verified && existing.resendAvailableAt > now) {
-    const retryAfterSeconds = Math.ceil((existing.resendAvailableAt - now) / 1000);
-    return {
-      ok: false,
-      status: 429,
-      error: `Please wait ${retryAfterSeconds}s before resending OTP.`,
-      retryAfterSeconds,
-    };
-  }
-
-  const sessionId = existing?.sessionId || randomUUID();
-  const normalizedOtpOverride = String(otpOverride || '').trim();
-  const otp = /^\d{6}$/.test(normalizedOtpOverride) ? normalizedOtpOverride : generateOtp();
-  const session = {
-    sessionId,
-    role: normalizedRole,
-    e164Phone,
-    otpHash: hashOtp(otp),
-    createdAt: now,
-    expiresAt: now + OTP_EXPIRY_MS,
-    resendAvailableAt: now + RESEND_COOLDOWN_MS,
-    attemptsRemaining: MAX_VERIFY_ATTEMPTS,
-    verified: false,
-  };
-
-  otpSessions.set(sessionId, session);
-  phoneToSession.set(`${normalizedRole}:${e164Phone}`, sessionId);
-
-  return {
-    ok: true,
-    status: 200,
-    sessionId,
-    e164Phone,
-    otp,
-    expiresInSeconds: Math.floor(OTP_EXPIRY_MS / 1000),
-    resendAfterSeconds: Math.floor(RESEND_COOLDOWN_MS / 1000),
-  };
-}
-
-export function verifyOtpSession({ sessionId, otp }) {
-  cleanupExpiredSessions();
-
-  const normalizedSessionId = String(sessionId || '').trim();
-  const normalizedOtp = String(otp || '').trim();
-  if (!normalizedSessionId) {
-    return {
-      ok: false,
-      status: 400,
-      error: 'OTP session is missing. Please request a new OTP.',
-    };
-  }
-
-  if (!/^\d{6}$/.test(normalizedOtp)) {
-    return {
-      ok: false,
-      status: 400,
-      error: 'Please enter a valid 6-digit OTP.',
-    };
-  }
-
-  const session = otpSessions.get(normalizedSessionId);
-  if (!session) {
-    return {
-      ok: false,
-      status: 400,
-      error: 'OTP expired. Please request a new OTP.',
-    };
-  }
-
-  const now = nowMs();
-  if (session.expiresAt <= now) {
-    otpSessions.delete(normalizedSessionId);
-    phoneToSession.delete(`${session.role}:${session.e164Phone}`);
-    return {
-      ok: false,
-      status: 410,
-      error: 'OTP expired. Please request a new OTP.',
-    };
-  }
-
-  if (session.attemptsRemaining <= 0) {
-    return {
-      ok: false,
-      status: 429,
-      error: 'Too many invalid attempts. Please request a new OTP.',
-      attemptsRemaining: 0,
-    };
-  }
-
-  if (session.otpHash !== hashOtp(normalizedOtp)) {
-    session.attemptsRemaining -= 1;
-    otpSessions.set(normalizedSessionId, session);
-
-    if (session.attemptsRemaining <= 0) {
-      otpSessions.delete(normalizedSessionId);
-      phoneToSession.delete(`${session.role}:${session.e164Phone}`);
-      return {
-        ok: false,
-        status: 429,
-        error: 'Too many invalid attempts. Please request a new OTP.',
-        attemptsRemaining: 0,
-      };
-    }
-
-    return {
-      ok: false,
-      status: 401,
-      error: 'Invalid OTP. Please try again.',
-      attemptsRemaining: session.attemptsRemaining,
-    };
-  }
-
-  session.verified = true;
-  session.verifiedAt = now;
-  otpSessions.set(normalizedSessionId, session);
-
-  return {
-    ok: true,
-    status: 200,
-    e164Phone: session.e164Phone,
-    role: session.role,
-    verifiedAt: new Date(now).toISOString(),
-  };
-}
-
-export function invalidateOtpSession(sessionId) {
-  const normalizedSessionId = String(sessionId || '').trim();
-  if (!normalizedSessionId) return;
-
-  const session = otpSessions.get(normalizedSessionId);
-  if (!session) return;
-
-  otpSessions.delete(normalizedSessionId);
-  phoneToSession.delete(`${session.role}:${session.e164Phone}`);
-}
-
-export async function sendSmsOtpMessage({
-  accountSid,
-  authToken,
-  smsFrom,
-  toPhoneE164,
-  body,
-}) {
-  const from = normalizeE164Phone(smsFrom);
-  const to = normalizeE164Phone(toPhoneE164);
-  if (!from || !to) {
-    return {
-      ok: false,
-      status: 500,
-      error: 'SMS sender configuration is invalid.',
-    };
-  }
-
-  const form = new URLSearchParams();
-  form.set('To', to);
-  form.set('From', from);
-  form.set('Body', body);
-
-  const auth = Buffer.from(`${accountSid}:${authToken}`).toString('base64');
+async function storeOtpInSupabase(phone, otp, expiresAt) {
+  const admin = createSupabaseAdminClient();
+  if (!admin) return false;
 
   try {
-    const response = await fetch(
-      `https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(accountSid)}/Messages.json`,
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Basic ${auth}`,
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: form.toString(),
-      }
-    );
+    // Mark old OTPs as used
+    await admin.from('phone_otps').update({ is_used: true }).eq('phone_number', phone).eq('is_used', false);
 
-    const result = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      const providerMessage =
-        typeof result.message === 'string' && result.message.trim().length > 0
-          ? result.message
-          : 'Failed to send SMS OTP.';
-      return {
-        ok: false,
-        status: response.status,
-        error: mapProviderErrorMessage(providerMessage),
-      };
+    // Insert new OTP
+    const { error } = await admin.from('phone_otps').insert({
+      phone_number: phone,
+      otp_code: otp,
+      expires_at: new Date(expiresAt).toISOString(),
+      is_used: false,
+    });
+    if (error) {
+      console.error('[OTP] Supabase insert error:', error.message, '| code:', error.code);
+      return false;
     }
-
-    return {
-      ok: true,
-      status: 200,
-      sid: result.sid,
-    };
+    return true;
   } catch (err) {
-    return {
-      ok: false,
-      status: 500,
-      error: err instanceof Error ? err.message : 'Unexpected server error',
-    };
+    console.error('[OTP] Supabase store exception:', err.message);
+    return false;
   }
 }
 
-export function getOtpPolicy() {
-  return {
-    expirySeconds: Math.floor(OTP_EXPIRY_MS / 1000),
-    resendAfterSeconds: Math.floor(RESEND_COOLDOWN_MS / 1000),
-    maxVerifyAttempts: MAX_VERIFY_ATTEMPTS,
-  };
+async function validateOtpFromSupabase(phone, token) {
+  const admin = createSupabaseAdminClient();
+  if (!admin) return null;
+
+  try {
+    const { data, error } = await admin
+      .from('phone_otps')
+      .select('id, otp_code, expires_at, is_used')
+      .eq('phone_number', phone)
+      .eq('is_used', false)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      console.error('[OTP] Supabase validate error:', error.message);
+      return null; // fall through to memory
+    }
+    if (!data) return { ok: false, reason: 'NOT_FOUND' };
+    if (new Date(data.expires_at).getTime() < Date.now()) {
+      await admin.from('phone_otps').update({ is_used: true }).eq('id', data.id);
+      return { ok: false, reason: 'EXPIRED' };
+    }
+    const expectedOtp = normalizeOtp(data.otp_code);
+    const providedOtp = normalizeOtp(token);
+    if (!expectedOtp || !providedOtp || expectedOtp !== providedOtp) {
+      return { ok: false, reason: 'INVALID' };
+    }
+
+    await admin.from('phone_otps').update({ is_used: true }).eq('id', data.id);
+    return { ok: true };
+  } catch (err) {
+    console.error('[OTP] Supabase validate exception:', err.message);
+    return null; // fall through to memory
+  }
+}
+
+// ─── Public API ────────────────────────────────────────────────────────────────
+
+/**
+ * Create + store an OTP, then deliver via SMS or console.
+ * @param {string} phone  E.164 or 10-digit number
+ * @returns {Promise<string>} The OTP (caller decides if it exposes it)
+ */
+export async function createOtp(phone) {
+  const key = normalizePhone(phone);
+  const otp = generateOtp();
+  const expiresAt = Date.now() + OTP_TTL_MS;
+
+  const savedToDb = await storeOtpInSupabase(phone, otp, expiresAt);
+  if (!savedToDb) {
+    // Memory fallback
+    memStore.set(key, { otp, expiresAt });
+    console.warn('[OTP] Falling back to in-memory store (table missing or DB unavailable).');
+  }
+
+  // ── SMS delivery ──────────────────────────────────────────────────────────
+  if (isTwilioConfigured()) {
+    try {
+      const { default: twilio } = await import('twilio');
+      const client = twilio(process.env['TWILIO_ACCOUNT_SID'], process.env['TWILIO_AUTH_TOKEN']);
+      const toNumber = phone.startsWith('+') ? phone : `+${key}`;
+      await client.messages.create({
+        body: `Your Farmgate Mandi OTP is: ${otp}. Valid for 5 minutes. Do not share.`,
+        from: process.env['TWILIO_PHONE_NUMBER'],
+        to: toNumber,
+      });
+      console.log(`[OTP] SMS sent to ${toNumber}`);
+    } catch (smsErr) {
+      console.error('[OTP] Twilio SMS failed:', smsErr.message);
+      throw smsErr;
+    }
+  } else {
+    // Dev mode
+    console.log('\n[OTP] ─────────────────────────────────────────');
+    console.log(`[OTP]  Phone   : +${key}`);
+    console.log(`[OTP]  Code    : ${otp}`);
+    console.log(`[OTP]  Expires : ${new Date(expiresAt).toLocaleTimeString('en-IN')}`);
+    console.log('[OTP] ─────────────────────────────────────────\n');
+  }
+
+  return otp;
+}
+
+/**
+ * Validate an OTP. Checks Supabase first, falls back to memory.
+ * Always async.
+ * @param {string} phone
+ * @param {string} token
+ * @returns {Promise<{ ok: boolean, reason?: 'NOT_FOUND'|'EXPIRED'|'INVALID' }>}
+ */
+export async function validateOtp(phone, token) {
+  // Try DB first
+  const dbResult = await validateOtpFromSupabase(phone, token);
+  if (dbResult !== null) return dbResult;
+
+  // Memory fallback
+  const key = normalizePhone(phone);
+  const record = memStore.get(key);
+  if (!record) return { ok: false, reason: 'NOT_FOUND' };
+  if (Date.now() > record.expiresAt) {
+    memStore.delete(key);
+    return { ok: false, reason: 'EXPIRED' };
+  }
+  const expectedOtp = normalizeOtp(record.otp);
+  const providedOtp = normalizeOtp(token);
+  if (!expectedOtp || !providedOtp || expectedOtp !== providedOtp) {
+    return { ok: false, reason: 'INVALID' };
+  }
+  memStore.delete(key);
+  return { ok: true };
 }

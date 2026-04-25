@@ -23,7 +23,7 @@ export const AdminLogin = () => {
 
     try {
       await login(email, password);
-      navigate('/admin/products');
+      navigate('/admin/dashboard');
     } catch (err: any) {
       setError(err.message || 'Login failed. Please check your credentials.');
     }
@@ -132,7 +132,7 @@ export const AdminLogin = () => {
                   <AlertCircle className="text-red-500 shrink-0" size={18} />
                   <div>
                     <p className="text-sm font-semibold text-red-900">{error || authError}</p>
-                    <p className="text-xs text-red-600 mt-0.5">Demo: admin@igo.com / admin123</p>
+                    <p className="text-xs text-red-600 mt-0.5">Contact your super-admin if you need access.</p>
                   </div>
                 </motion.div>
               )}
@@ -145,7 +145,7 @@ export const AdminLogin = () => {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="admin@igo.com"
+                  placeholder="your@email.com"
                   className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-sm focus:border-lime-500 focus:outline-none transition-colors"
                 />
               </div>
@@ -194,11 +194,6 @@ export const AdminLogin = () => {
                 )}
               </motion.button>
 
-              <div className="p-4 bg-lime-50 border border-lime-100 rounded-xl">
-                <p className="text-xs font-bold text-lime-800 mb-1">Demo Credentials</p>
-                <p className="text-xs text-lime-700">Email: <strong>admin@igo.com</strong></p>
-                <p className="text-xs text-lime-700">Password: <strong>admin123</strong></p>
-              </div>
             </form>
 
             <div className="px-8 py-5 bg-gray-50 border-t border-gray-100 flex items-center justify-between">

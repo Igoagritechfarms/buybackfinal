@@ -136,17 +136,27 @@ const DMartLogoSVG = () => (
 
 /** Zepto — purple bold brand */
 const ZeptoLogoSVG = () => (
-  <svg viewBox="0 0 200 80" xmlns="http://www.w3.org/2000/svg">
-    <rect width="200" height="80" rx="10" fill="#f3f0ff"/>
-    {/* Purple circle Z badge */}
-    <circle cx="42" cy="40" r="28" fill="#5b21b6"/>
-    <text x="42" y="49" fontFamily="Arial Black,sans-serif" fontSize="26" fontWeight="900"
-          fill="white" textAnchor="middle">Z</text>
-    {/* zepto text */}
-    <text x="82" y="47" fontFamily="Arial Black,sans-serif" fontSize="26" fontWeight="900"
-          fill="#5b21b6">zepto</text>
-    {/* Tagline */}
-    <text x="82" y="62" fontFamily="Arial,sans-serif" fontSize="9" fill="#7c3aed">10-min delivery</text>
+  <svg viewBox="0 0 320 120" xmlns="http://www.w3.org/2000/svg" className="h-full w-full">
+    <defs>
+      <linearGradient id="zepto-wordmark" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#f33276" />
+        <stop offset="55%" stopColor="#f55258" />
+        <stop offset="100%" stopColor="#ff7a45" />
+      </linearGradient>
+    </defs>
+    <rect width="320" height="120" rx="18" fill="#4b0b78" />
+    <text
+      x="160"
+      y="78"
+      textAnchor="middle"
+      fontFamily="Trebuchet MS, Arial Rounded MT Bold, Arial, sans-serif"
+      fontSize="74"
+      fontWeight="700"
+      letterSpacing="0"
+      fill="url(#zepto-wordmark)"
+    >
+      zepto
+    </text>
   </svg>
 );
 

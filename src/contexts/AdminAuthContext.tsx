@@ -1,14 +1,16 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, checkIsAdmin } from '../lib/supabase';
 import { User } from '@supabase/supabase-js';
 
 interface AdminAuthContextType {
   user: User | null;
   loading: boolean;
   error: string | null;
+  isAdmin: boolean;
+  /** True while checking admin_users table */
+  checkingRole: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
-  isAdmin: boolean;
 }
 
 const AdminAuthContext = createContext<AdminAuthContextType | undefined>(undefined);
@@ -17,15 +19,33 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [checkingRole, setCheckingRole] = useState(false);
+
+  const verifyAdminRole = async (u: User | null) => {
+    if (!u) {
+      setIsAdmin(false);
+      return;
+    }
+    setCheckingRole(true);
+    try {
+      const adminStatus = await checkIsAdmin();
+      setIsAdmin(adminStatus);
+    } catch {
+      setIsAdmin(false);
+    } finally {
+      setCheckingRole(false);
+    }
+  };
 
   useEffect(() => {
-    // Check current session
     const checkAuth = async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser();
         setUser(user);
+        await verifyAdminRole(user);
       } catch (err) {
-        console.error('Auth check error:', err);
+        console.error('Admin auth check error:', err);
       } finally {
         setLoading(false);
       }
@@ -33,9 +53,10 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     checkAuth();
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      const authUser = session?.user ?? null;
+      setUser(authUser);
+      await verifyAdminRole(authUser);
     });
 
     return () => subscription?.unsubscribe();
@@ -45,13 +66,34 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setError(null);
     try {
       setLoading(true);
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error: loginError } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
-      if (error) throw error;
-    } catch (err: any) {
-      setError(err.message || 'Login failed');
+      if (loginError) throw loginError;
+
+      setUser(data.user);
+
+      // Verify admin role after login
+      const adminStatus = await checkIsAdmin();
+      setIsAdmin(adminStatus);
+
+      if (!adminStatus) {
+        // Sign out immediately — this account is not an admin
+        await supabase.auth.signOut();
+        setUser(null);
+        setIsAdmin(false);
+        throw new Error(
+          'Access denied. Your account does not have admin privileges. ' +
+            'Contact the super-admin to grant access.'
+        );
+      }
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : 'Login failed';
+      setError(message);
       throw err;
     } finally {
       setLoading(false);
@@ -61,21 +103,23 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const logout = async () => {
     try {
       setLoading(true);
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      const { error: logoutError } = await supabase.auth.signOut();
+      if (logoutError) throw logoutError;
       setUser(null);
-    } catch (err: any) {
-      setError(err.message || 'Logout failed');
+      setIsAdmin(false);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Logout failed';
+      setError(message);
       throw err;
     } finally {
       setLoading(false);
     }
   };
 
-  const isAdmin = !!user;
-
   return (
-    <AdminAuthContext.Provider value={{ user, loading, error, login, logout, isAdmin }}>
+    <AdminAuthContext.Provider
+      value={{ user, loading, error, isAdmin, checkingRole, login, logout }}
+    >
       {children}
     </AdminAuthContext.Provider>
   );

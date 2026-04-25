@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { MarketPrice, getMarketPrices, subscribeToMarketPrices } from '../lib/supabase';
 
 /**
@@ -20,6 +20,44 @@ const DEFAULT_MARKET_PRICES: MarketPrice[] = [
   { product_id: 'banana', name: 'Banana', price: 32, prev_price: 30, unit: 'kg', category: 'Fruits', demand: 'High' },
 ];
 
+const MARKET_RATES_CACHE_TTL_MS = 5000;
+let cachedRatesSnapshot: MarketPrice[] | null = null;
+let cachedRatesAt = 0;
+let inflightRatesRequest: Promise<MarketPrice[]> | null = null;
+
+function logMarketRates(level: 'error' | 'info', message: string, details?: unknown) {
+  if (!import.meta.env.DEV) {
+    return;
+  }
+
+  console[level](`[market-rates] ${message}`, details);
+}
+
+async function loadMarketRates() {
+  const now = Date.now();
+  if (cachedRatesSnapshot && now - cachedRatesAt < MARKET_RATES_CACHE_TTL_MS) {
+    logMarketRates('info', 'Using cached market prices snapshot.');
+    return cachedRatesSnapshot;
+  }
+
+  if (!inflightRatesRequest) {
+    inflightRatesRequest = getMarketPrices()
+      .then((prices) => {
+        const nextRates = prices.length > 0 ? prices : DEFAULT_MARKET_PRICES;
+        cachedRatesSnapshot = nextRates;
+        cachedRatesAt = Date.now();
+        return nextRates;
+      })
+      .finally(() => {
+        inflightRatesRequest = null;
+      });
+  } else {
+    logMarketRates('info', 'Reusing inflight market prices request.');
+  }
+
+  return inflightRatesRequest;
+}
+
 /**
  * Hook for fetching and subscribing to real-time market prices
  * Fetches from Supabase or uses fallback data if not yet populated
@@ -34,30 +72,36 @@ export function useMarketRates() {
 
   // Fetch initial rates
   useEffect(() => {
+    let isActive = true;
+
     const fetchRates = async () => {
       try {
         setIsLoading(true);
         setError(null);
 
-        const prices = await getMarketPrices();
-
-        // If no prices in DB, use defaults (in production, seed the DB)
-        if (prices && prices.length > 0) {
+        const prices = await loadMarketRates();
+        if (isActive) {
           setRates(prices);
-        } else {
-          setRates(DEFAULT_MARKET_PRICES);
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to fetch market prices';
-        console.error('Market prices error:', message);
-        setError(message);
-        setRates(DEFAULT_MARKET_PRICES); // Fallback to defaults
+        logMarketRates('error', 'Market prices fetch failed.', err);
+        if (isActive) {
+          setError(message);
+          setRates(DEFAULT_MARKET_PRICES);
+        }
       } finally {
-        setIsLoading(false);
+        if (isActive) {
+          setIsLoading(false);
+        }
       }
     };
 
-    fetchRates();
+    void fetchRates();
+
+    return () => {
+      isActive = false;
+    };
   }, []);
 
   // Subscribe to realtime updates
@@ -68,16 +112,18 @@ export function useMarketRates() {
       unsubscribe = subscribeToMarketPrices(
         (prices) => {
           if (prices && prices.length > 0) {
+            cachedRatesSnapshot = prices;
+            cachedRatesAt = Date.now();
             setRates(prices);
           }
         },
         (err) => {
-          console.error('Market price subscription error:', err);
+          logMarketRates('error', 'Market price subscription error.', err);
           // Keep using current rates if subscription fails
         }
       );
     } catch (err) {
-      console.error('Failed to setup market price subscription:', err);
+      logMarketRates('error', 'Failed to setup market price subscription.', err);
     }
 
     return () => {
