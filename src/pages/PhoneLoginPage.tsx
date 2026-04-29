@@ -5,16 +5,18 @@ import { ArrowLeft, RefreshCw, ShieldCheck, AlertCircle, Lock, CheckCircle2 } fr
 import { BrandLogo } from '../components/BrandLogo';
 import { useAuth } from '../contexts/AuthContext';
 import {
+  loginWithEmailOtp,
   loginWithOtp,
   loginWithPassword,
   mapPhoneAuthError,
+  sendEmailOtp,
   sendPhoneOtp,
 } from '../lib/phoneAuth';
 
 const OTP_LENGTH = 6;
 const RESEND_SECONDS = 30;
 
-type LoginMethod = 'password' | 'otp';
+type LoginMethod = 'password' | 'otp-phone' | 'otp-email';
 
 function sanitizeToIndianMobileDigits(value: string): string {
   const digits = value.replace(/\D/g, '');
@@ -27,6 +29,14 @@ function isValidIndianMobile(value: string): boolean {
   return /^[6-9]\d{9}$/.test(value);
 }
 
+function sanitizeToEmail(value: string): string {
+  return String(value || '').trim().toLowerCase();
+}
+
+function isValidEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim());
+}
+
 export const PhoneLoginPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -36,7 +46,7 @@ export const PhoneLoginPage = () => {
 
   const [method, setMethod] = useState<LoginMethod>('password');
   const [step, setStep] = useState<'input' | 'otp-verify'>('input');
-  const [phoneDigits, setPhoneDigits] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [otpToken, setOtpToken] = useState('');
   
@@ -48,12 +58,16 @@ export const PhoneLoginPage = () => {
 
   const timerRef = useRef<number | null>(null);
 
-  const isPhoneValid = useMemo(() => isValidIndianMobile(phoneDigits), [phoneDigits]);
+  const isPhoneValid = useMemo(() => isValidIndianMobile(identifier), [identifier]);
+  const isEmailValid = useMemo(() => isValidEmail(identifier), [identifier]);
   const canSubmit = useMemo(() => {
     if (method === 'password') return isPhoneValid && password.length >= 6;
-    if (step === 'input') return isPhoneValid;
-    return otpToken.length === OTP_LENGTH;
-  }, [method, step, isPhoneValid, password, otpToken]);
+    if (method === 'otp-phone') return isPhoneValid;
+    if (method === 'otp-email') return isEmailValid;
+    return false;
+  }, [method, isPhoneValid, isEmailValid, password]);
+
+  const canVerifyOtp = useMemo(() => otpToken.length === OTP_LENGTH, [otpToken]);
 
   // Redirect if already logged in
   useEffect(() => {
@@ -88,77 +102,86 @@ export const PhoneLoginPage = () => {
     if (method === 'password') {
       setLoggingIn(true);
       try {
-        await loginWithPassword(phoneDigits, password);
+        await loginWithPassword(identifier, password);
         navigate(from, { replace: true });
       } catch (error: unknown) {
         setErrorMessage(mapPhoneAuthError(error, 'login'));
       } finally {
         setLoggingIn(false);
       }
+      return;
+    }
+
+    // OTP Method
+    if (step === 'input') {
+      setSending(true);
+      try {
+        if (method === 'otp-phone') {
+          await sendPhoneOtp(identifier);
+          setInfoMessage(`OTP sent to +91 ${identifier}.`);
+        } else {
+          await sendEmailOtp(identifier);
+          setInfoMessage(`OTP sent to ${identifier}. Check your inbox.`);
+        }
+        setStep('otp-verify');
+        setResendIn(RESEND_SECONDS);
+        setOtpToken('');
+      } catch (error: unknown) {
+        setErrorMessage(mapPhoneAuthError(error, 'send'));
+      } finally {
+        setSending(false);
+      }
     } else {
-      // OTP Method
-      if (step === 'input') {
-        setSending(true);
-        try {
-          const sendResult = await sendPhoneOtp(phoneDigits);
-          setStep('otp-verify');
-          setResendIn(RESEND_SECONDS);
-          setOtpToken('');
-          if (sendResult.otp) {
-            setInfoMessage(`OTP sent to +91 ${phoneDigits}. (Demo OTP: ${sendResult.otp})`);
-          } else {
-            setInfoMessage(`OTP sent to +91 ${phoneDigits}.`);
-          }
-        } catch (error: unknown) {
-          setErrorMessage(mapPhoneAuthError(error, 'send'));
-        } finally {
-          setSending(false);
+      setLoggingIn(true);
+      try {
+        if (method === 'otp-phone') {
+          await loginWithOtp(identifier, otpToken);
+        } else {
+          await loginWithEmailOtp(identifier, otpToken);
         }
-      } else {
-        setLoggingIn(true);
-        try {
-          await loginWithOtp(phoneDigits, otpToken);
-          navigate(from, { replace: true });
-        } catch (error: unknown) {
-          setErrorMessage(mapPhoneAuthError(error, 'verify'));
-        } finally {
-          setLoggingIn(false);
-        }
+        navigate(from, { replace: true });
+      } catch (error: unknown) {
+        setErrorMessage(mapPhoneAuthError(error, 'verify'));
+      } finally {
+        setLoggingIn(false);
       }
     }
   }, [
     from,
+    identifier,
     loggingIn,
     method,
     navigate,
     otpToken,
     password,
-    phoneDigits,
     sending,
     step,
   ]);
 
   const handleResendOtp = useCallback(async () => {
-    if (resendIn > 0 || sending || loggingIn || !isPhoneValid) return;
+    if (resendIn > 0 || sending || loggingIn) return;
+    if (method === 'otp-phone' && !isPhoneValid) return;
+    if (method === 'otp-email' && !isEmailValid) return;
 
     setErrorMessage('');
     setInfoMessage('');
     setSending(true);
     try {
-      const sendResult = await sendPhoneOtp(phoneDigits);
+      if (method === 'otp-phone') {
+        await sendPhoneOtp(identifier);
+        setInfoMessage(`OTP resent to +91 ${identifier}.`);
+      } else {
+        await sendEmailOtp(identifier);
+        setInfoMessage(`OTP resent to ${identifier}.`);
+      }
       setResendIn(RESEND_SECONDS);
       setOtpToken('');
-      if (sendResult.otp) {
-        setInfoMessage(`OTP sent to +91 ${phoneDigits}. (Demo OTP: ${sendResult.otp})`);
-      } else {
-        setInfoMessage(`OTP sent to +91 ${phoneDigits}.`);
-      }
     } catch (error: unknown) {
       setErrorMessage(mapPhoneAuthError(error, 'send'));
     } finally {
       setSending(false);
     }
-  }, [isPhoneValid, loggingIn, phoneDigits, resendIn, sending]);
+  }, [identifier, isEmailValid, isPhoneValid, loggingIn, method, resendIn, sending]);
 
   if (loading) {
     return (
@@ -197,10 +220,17 @@ export const PhoneLoginPage = () => {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setMethod('otp')}
-                  className={`flex-1 py-2 text-sm font-bold rounded-lg transition ${method === 'otp' ? 'bg-white shadow-sm text-green-700' : 'text-gray-500'}`}
+                  onClick={() => setMethod('otp-phone')}
+                  className={`flex-1 py-2 text-sm font-bold rounded-lg transition ${method === 'otp-phone' ? 'bg-white shadow-sm text-green-700' : 'text-gray-500'}`}
                 >
-                  OTP Login
+                  Phone OTP
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMethod('otp-email')}
+                  className={`flex-1 py-2 text-sm font-bold rounded-lg transition ${method === 'otp-email' ? 'bg-white shadow-sm text-green-700' : 'text-gray-500'}`}
+                >
+                  Email OTP
                 </button>
               </div>
             )}
@@ -223,15 +253,24 @@ export const PhoneLoginPage = () => {
               {step === 'input' ? (
                 <>
                   <div>
-                    <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Mobile Number</label>
-                    <div className="flex gap-2">
-                      <span className="flex items-center bg-gray-50 border border-gray-200 px-3 rounded-xl text-gray-600 font-bold">+91</span>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-2">
+                      {method === 'otp-email' ? 'Email Address' : 'Mobile Number'}
+                    </label>
+                    <div className={`flex gap-2 ${method === 'otp-email' ? '' : 'items-center'}`}>
+                      {method === 'otp-phone' && (
+                        <span className="flex items-center bg-gray-50 border border-gray-200 px-3 rounded-xl text-gray-600 font-bold">+91</span>
+                      )}
                       <input
-                        type="tel"
-                        maxLength={10}
-                        placeholder="10-digit number"
-                        value={phoneDigits}
-                        onChange={e => setPhoneDigits(sanitizeToIndianMobileDigits(e.target.value))}
+                        type={method === 'otp-email' ? 'email' : 'tel'}
+                        maxLength={method === 'otp-phone' ? 10 : undefined}
+                        placeholder={method === 'otp-email' ? 'your@email.com' : '10-digit number'}
+                        value={identifier}
+                        onChange={e => {
+                          const value = method === 'otp-phone'
+                            ? sanitizeToIndianMobileDigits(e.target.value)
+                            : sanitizeToEmail(e.target.value);
+                          setIdentifier(value);
+                        }}
                         className="flex-1 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500"
                         autoFocus
                       />
@@ -277,7 +316,9 @@ export const PhoneLoginPage = () => {
                       autoFocus
                     />
                     <div className="mt-2 flex justify-between items-center text-xs">
-                       <button type="button" onClick={() => setStep('input')} className="text-gray-500 hover:text-gray-700 underline font-medium">Change number</button>
+                       <button type="button" onClick={() => setStep('input')} className="text-gray-500 hover:text-gray-700 underline font-medium">
+                         Change {method === 'otp-email' ? 'email' : 'number'}
+                       </button>
                        {resendIn > 0 ? (
                          <span className="text-gray-400">Resend in {resendIn}s</span>
                        ) : (
@@ -304,6 +345,7 @@ export const PhoneLoginPage = () => {
           </div>
         </motion.div>
       </div>
+
     </div>
   );
 };

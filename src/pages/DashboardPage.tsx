@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   LogOut,
@@ -16,8 +16,12 @@ import {
   CheckCircle2,
   AlertCircle,
   Download,
+  Gift,
+  Settings as SettingsIcon,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { ReferralProgram } from '../components/ReferralProgram';
+import { Settings } from './Settings';
 import {
   getMyFormDetails,
   saveUserFormDetails,
@@ -736,10 +740,30 @@ function SubmissionsSection() {
 
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 
+type DashTab = 'profile' | 'referrals' | 'settings';
+
 export const DashboardPage = () => {
   const navigate = useNavigate();
   const { user, profile, loading, profileLoading, logout } = useAuth();
   const [loggingOut, setLoggingOut] = useState(false);
+  const [activeTab, setActiveTab] = useState<DashTab>('profile');
+  const [copiedReferral, setCopiedReferral] = useState(false);
+
+  const referralCode = useMemo(() => {
+    if (!user) return 'IGO-REFERRAL';
+    const source = profile?.full_name?.trim() || user.phone || user.email || user.id;
+    const cleaned = source.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 12);
+    return `IGO-${cleaned || user.id.slice(0, 8).toUpperCase()}`;
+  }, [profile, user]);
+
+  const referralLink = `https://igofarmgate.com/join?ref=${encodeURIComponent(referralCode)}`;
+
+  const handleCopyReferral = () => {
+    if (!user) return;
+    navigator.clipboard.writeText(referralLink);
+    setCopiedReferral(true);
+    setTimeout(() => setCopiedReferral(false), 2000);
+  };
 
   const handleLogout = async () => {
     setLoggingOut(true);
@@ -768,13 +792,19 @@ export const DashboardPage = () => {
 
   const phone = profile?.phone || user?.phone || null;
 
+  const dashTabs: { id: DashTab; label: string; icon: React.ElementType }[] = [
+    { id: 'profile', label: 'My Profile', icon: User },
+    { id: 'referrals', label: 'Referrals', icon: Gift },
+    { id: 'settings', label: 'Settings', icon: SettingsIcon },
+  ];
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Top bar */}
       <header className="sticky top-0 z-20 bg-white border-b border-gray-100 shadow-sm px-4 sm:px-6 py-3 flex items-center justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-widest text-green-700">Farmgate Mandi</p>
-          <p className="text-sm font-medium text-gray-700">My Dashboard</p>
+          <p className="text-sm font-medium text-gray-700">My Account</p>
         </div>
         <button
           onClick={handleLogout}
@@ -786,25 +816,70 @@ export const DashboardPage = () => {
         </button>
       </header>
 
-      <main className="max-w-3xl mx-auto px-4 sm:px-6 py-8 space-y-5">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 pt-6">
         {/* Profile card */}
         <ProfileCard profile={profile} user={user} />
 
-        {/* My Details Form */}
-        <MyDetailsSection
-          userId={user.id}
-          profileName={profile?.full_name}
-          phone={phone}
-        />
+        {/* Tab bar */}
+        <div className="flex gap-1 mt-5 bg-white border border-gray-100 rounded-2xl p-1 shadow-sm">
+          {dashTabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                activeTab === tab.id
+                  ? 'bg-green-700 text-white shadow'
+                  : 'text-gray-500 hover:text-green-700 hover:bg-green-50'
+              }`}
+            >
+              <tab.icon size={15} />
+              <span className="hidden sm:inline">{tab.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
 
-        {/* Bank Details */}
-        <BankDetailsSection userId={user.id} />
+      <main className="max-w-3xl mx-auto px-4 sm:px-6 py-6 space-y-5">
+        {/* Profile Tab */}
+        {activeTab === 'profile' && (
+          <>
+            <MyDetailsSection
+              userId={user.id}
+              profileName={profile?.full_name}
+              phone={phone}
+            />
+            <BankDetailsSection userId={user.id} />
+            <PaymentProofsSection />
+            <SubmissionsSection />
+          </>
+        )}
 
-        {/* Payment Proofs */}
-        <PaymentProofsSection />
+        {/* Referrals Tab */}
+        {activeTab === 'referrals' && (
+          <div className="space-y-5">
+            {/* Quick referral link */}
+            <section className="rounded-2xl bg-white border border-gray-100 shadow-sm p-5">
+              <p className="text-xs uppercase tracking-widest text-green-700 font-semibold mb-1">Your Referral Link</p>
+              <div className="flex items-center gap-3 mt-3">
+                <div className="flex-1 rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm font-mono text-green-700 break-all">{referralLink}</div>
+                <button
+                  onClick={handleCopyReferral}
+                  className="shrink-0 rounded-xl bg-green-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-green-800 transition"
+                >
+                  {copiedReferral ? 'Copied!' : 'Copy'}
+                </button>
+              </div>
+            </section>
+            <ReferralProgram />
+          </div>
+        )}
 
-        {/* Submissions */}
-        <SubmissionsSection />
+        {/* Settings Tab */}
+        {activeTab === 'settings' && (
+          <div className="-mx-4 sm:-mx-6">
+            <Settings />
+          </div>
+        )}
       </main>
     </div>
   );

@@ -4,42 +4,42 @@
 The OTP system uses:
 - **Express server** (port 3001) for OTP generation and validation
 - **Supabase** for OTP storage and user management
-- **Vite dev server** (port 5173) proxies `/api/*` requests to the Express server
+- **Vite dev server** (port 5173) proxying `/api/*` requests to the Express server
 
 ## Setup Steps
 
-### 1. Create Supabase Table
-Run this SQL in your Supabase SQL Editor:
+### 1. Create the Supabase table
+Run the SQL in your Supabase SQL Editor:
 
 ```sql
 -- See scripts/sql/create_phone_otps_table.sql
 ```
 
-Or manually run:
+Or manually run the SQL file:
 ```bash
 # Copy the SQL content from scripts/sql/create_phone_otps_table.sql
 ```
 
-### 2. Configure Environment Variables
-Ensure your `.env` file has:
+### 2. Configure environment variables
+Ensure your `.env` file contains:
 
 ```bash
-# Supabase (Frontend)
+# Supabase (frontend)
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your-anon-key
 
-# Supabase (Backend)
+# Supabase (backend)
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 
-# OTP Security
-OTP_JWT_SECRET=change-me-to-random-32char-string
+# OTP security
+OTP_JWT_SECRET=change-me-to-a-random-32-character-string
 
-# Express Server
+# Express server
 OTP_SERVER_PORT=3001
 ```
 
-### 3. Start Both Servers
+### 3. Start both servers
 
 **Option A: Start individually**
 ```bash
@@ -57,7 +57,7 @@ npm run dev:all
 
 ## Testing
 
-### Test Express server directly:
+### Test the Express server directly:
 ```bash
 curl -X POST http://localhost:3001/api/send-otp \
   -H "Content-Type: application/json" \
@@ -67,7 +67,7 @@ curl -X POST http://localhost:3001/api/send-otp \
 # {"success":true,"message":"OTP generated...","otp":"123456","devMode":true}
 ```
 
-### Test through Vite proxy:
+### Test through the Vite proxy:
 ```bash
 curl -X POST http://localhost:5173/api/send-otp \
   -H "Content-Type: application/json" \
@@ -76,27 +76,27 @@ curl -X POST http://localhost:5173/api/send-otp \
 
 ## Common Issues & Fixes
 
-### 1. 500 Error on `/api/send-otp`
+### 1. 500 error on `/api/send-otp`
 **Symptoms:**
 - Browser console: `POST http://localhost:5173/api/send-otp 500`
 - Frontend error: "Request failed (500)"
 
-**Possible Causes & Solutions:**
+**Possible causes & solutions:**
 
-#### A. Express server not running
+#### A. Express server is not running
 ```bash
 # Check if server is running
 curl http://localhost:3001/api/send-otp
 
-# If connection refused, start server:
+# If connection is refused, start the server:
 npm run server:otp
 ```
 
-#### B. Supabase table missing
+#### B. Supabase table is missing
 - Run the SQL migration from `scripts/sql/create_phone_otps_table.sql`
 - Check server logs for: `[OTP] Falling back to in-memory store`
 
-#### C. Supabase credentials missing/invalid
+#### C. Supabase credentials are missing or invalid
 ```bash
 # Check server startup logs:
 cat server-start.log
@@ -104,36 +104,36 @@ cat server-start.log
 # Should show:
 # ✅ Supabase: configured
 
-# If shows ❌, check your .env file
+# If it shows ❌, check your .env file
 ```
 
-#### D. RLS policies blocking insert
-- The table uses service role key which bypasses RLS
+#### D. RLS policies are blocking inserts
+- The table uses the service role key, which bypasses RLS
 - Verify `SUPABASE_SERVICE_ROLE_KEY` in `.env` is correct
 
-### 2. OTP Not Showing on Screen
-**In development mode** (no Twilio configured), the OTP should:
-1. Print to server console
-2. Return in API response as `{"otp": "123456"}`
-3. Auto-fill in the UI or show as a toast notification
+### 2. OTP is not showing on screen
+In development mode (when Twilio is not configured), the OTP should:
+1. Print to the server console
+2. Return in the API response as `{"otp": "123456"}`
+3. Auto-fill in the UI or display as a toast notification
 
 Check:
 - Server logs show the OTP
 - Response includes `"devMode": true` and `"otp": "123456"`
 - Frontend extracts and displays it
 
-### 3. Phone Number Format Issues
+### 3. Phone number format issues
 Valid formats:
 - `9876543210` (10 digits)
 - `919876543210` (12 digits with country code)
 - `+919876543210` (E.164 format)
 
-The system normalizes all to `+919876543210` internally.
+The system normalizes all values to `+919876543210` internally.
 
-### 4. Vite Proxy Not Working
-If Vite can't reach the Express server:
+### 4. Vite proxy is not working
+If Vite cannot reach the Express server:
 
-1. Check Vite config proxy settings:
+1. Check Vite proxy settings:
 ```js
 // vite.config.ts
 proxy: {
@@ -144,16 +144,16 @@ proxy: {
 }
 ```
 
-2. Verify port in `.env`:
+2. Verify the port in `.env`:
 ```bash
 OTP_SERVER_PORT=3001
 ```
 
-3. Check firewall/antivirus blocking localhost connections
+3. Check whether firewall or antivirus software is blocking localhost connections
 
 ## Development Workflow
 
-1. **Always start the Express server first**
+1. **Start the Express server first**
    ```bash
    npm run server:otp
    ```
@@ -163,7 +163,7 @@ OTP_SERVER_PORT=3001
    npm run dev
    ```
 
-3. **Check both servers are running**
+3. **Verify both servers are running**
    - Express: http://localhost:3001
    - Vite: http://localhost:5173 (or your configured port)
 
@@ -181,26 +181,26 @@ OTP_SERVER_PORT=3001
 ## Deployment Notes
 
 ### Production (Vercel/Netlify/etc.)
-1. Set all environment variables in your hosting platform
-2. Consider using Twilio for real SMS:
+1. Set all required environment variables in your hosting platform
+2. Consider using Twilio for real SMS delivery:
    ```bash
    TWILIO_ACCOUNT_SID=your-sid
    TWILIO_AUTH_TOKEN=your-token
    TWILIO_PHONE_NUMBER=+1234567890
    ```
-3. Deploy Express server separately or use serverless functions
+3. Deploy the Express server separately or use serverless functions
 
 ### Security
 - Never commit `.env` to git
-- Use strong `OTP_JWT_SECRET` (32+ random characters)
-- In production, set `NODE_ENV=production` to hide detailed errors
+- Use a strong `OTP_JWT_SECRET` (32+ random characters)
+- Set `NODE_ENV=production` in production to hide detailed errors
 - Enable HTTPS for all production traffic
-- Consider rate limiting on OTP endpoints
+- Consider rate limiting OTP endpoints
 
 ## Need Help?
 
 1. Check server logs: `cat server-start.log`
-2. Check browser console (F12)
-3. Test API directly with curl
+2. Check the browser console (F12)
+3. Test the API directly with curl
 4. Verify environment variables are loaded
-5. Ensure Supabase table exists with correct schema
+5. Ensure the Supabase table exists with the correct schema

@@ -1,8 +1,9 @@
 import { Router } from 'express';
-import { createOtp, validateOtp, isTwilioConfigured } from './otpService.js';
+import { createOtp, validateOtp, isSmsConfigured } from './otpService.js';
 import {
   createMagicLinkOtpForEmail,
   createSupabaseAdminClient,
+  findUserByEmail,
   findUserByPhone,
   getOrCreateUserByPhone,
   phoneToCredentials,
@@ -12,7 +13,13 @@ import {
 const router = Router();
 
 const INDIAN_PHONE_RE = /^[6-9]\d{9}$/;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const OTP_RE = /^\d{6}$/;
+
+function parseEmail(raw) {
+  const email = String(raw || '').trim().toLowerCase();
+  return EMAIL_RE.test(email) ? email : null;
+}
 
 /**
  * Normalize raw phone input → E.164 (+91XXXXXXXXXX).
@@ -45,11 +52,11 @@ router.post('/send-otp', async (req, res) => {
 
     return res.json({
       success: true,
-      message: isTwilioConfigured()
+      message: isSmsConfigured()
         ? 'OTP sent to your mobile number via SMS.'
         : 'OTP generated. Enter the code shown below.',
-      // Only expose OTP in dev mode (no Twilio)
-      ...(!isTwilioConfigured() && { otp, devMode: true }),
+      // Only expose OTP in dev mode (no SMS provider configured)
+      ...(!isSmsConfigured() && { otp, devMode: true }),
     });
   } catch (err) {
     console.error('[send-otp] SEND OTP ERROR:', err);
@@ -275,6 +282,58 @@ router.post('/login-otp', async (req, res) => {
     });
   } catch (err) {
     return res.status(500).json({ error: 'LOGIN_OTP_FAILED', message: err.message });
+  }
+});
+
+// ─── POST /api/supabase-credentials ──────────────────────────────────────────
+// Called by Firebase Phone Auth flow after Firebase verifies the OTP.
+// Returns Supabase email+password credentials for this phone so the frontend
+// can sign into Supabase and create an app session.
+
+router.post('/supabase-credentials', async (req, res) => {
+  try {
+    const phone = parseIndianPhone(req.body?.phone);
+    if (!phone) {
+      return res.status(400).json({ error: 'INVALID_PHONE', message: 'Invalid phone number.' });
+    }
+
+    const credentials = await getOrCreateUserByPhone(phone);
+    return res.json({ email: credentials.email, password: credentials.password });
+  } catch (err) {
+    console.error('[supabase-credentials] Error:', err.message);
+    return res.status(500).json({ error: 'CREDENTIALS_FAILED', message: err.message });
+  }
+});
+
+router.post('/send-email-otp', async (req, res) => {
+  try {
+    const email = parseEmail(req.body?.email);
+    if (!email) {
+      return res.status(400).json({
+        error: 'INVALID_EMAIL',
+        message: 'Please enter a valid email address.',
+      });
+    }
+
+    const existing = await findUserByEmail(email);
+    if (!existing) {
+      return res.status(404).json({
+        error: 'ACCOUNT_NOT_FOUND',
+        message: 'Account not found. Please sign up first.',
+      });
+    }
+
+    const { emailOtp, tokenHash } = await createMagicLinkOtpForEmail(email);
+    return res.json({
+      success: true,
+      email,
+      emailOtp,
+      tokenHash,
+      devMode: !isTwilioConfigured(),
+    });
+  } catch (err) {
+    console.error('[send-email-otp] Error:', err);
+    return res.status(500).json({ error: 'SEND_EMAIL_OTP_FAILED', message: err.message });
   }
 });
 

@@ -22,6 +22,7 @@
 
 import './env.js';
 import { createSupabaseAdminClient } from './supabaseAdmin.js';
+import { sendSmsOtp } from './smsService.js';
 
 const OTP_TTL_MS = 5 * 60 * 1000; // 5 minutes
 const OTP_LENGTH = 6;
@@ -34,6 +35,10 @@ const memStore = new Map();
 
 export function isTwilioConfigured() {
   return !!(process.env['TWILIO_ACCOUNT_SID'] && process.env['TWILIO_AUTH_TOKEN']);
+}
+
+export function isSmsConfigured() {
+  return isTwilioConfigured() || !!process.env['FAST2SMS_API_KEY'];
 }
 
 function normalizePhone(phone) {
@@ -147,13 +152,15 @@ export async function createOtp(phone) {
         from: process.env['TWILIO_PHONE_NUMBER'],
         to: toNumber,
       });
-      console.log(`[OTP] SMS sent to ${toNumber}`);
+      console.log(`[OTP] SMS sent to ${toNumber} via Twilio`);
     } catch (smsErr) {
       console.error('[OTP] Twilio SMS failed:', smsErr.message);
       throw smsErr;
     }
+  } else if (process.env['FAST2SMS_API_KEY']) {
+    await sendSmsOtp(phone, otp);
   } else {
-    // Dev mode
+    // Dev mode — no SMS provider configured
     console.log('\n[OTP] ─────────────────────────────────────────');
     console.log(`[OTP]  Phone   : +${key}`);
     console.log(`[OTP]  Code    : ${otp}`);

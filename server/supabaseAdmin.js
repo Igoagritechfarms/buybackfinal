@@ -20,7 +20,8 @@ export function getSupabaseAdminConfig(env = process.env) {
 
 export function createSupabaseAdminClient(env = process.env) {
   const config = getSupabaseAdminConfig(env);
-  if (!config.url || !config.serviceRoleKey) return null;
+  const isValidUrl = config.url.startsWith('https://') || config.url.startsWith('http://');
+  if (!config.url || !isValidUrl || !config.serviceRoleKey) return null;
 
   if (
     cachedClient &&
@@ -159,6 +160,35 @@ export async function findUserByPhone(e164) {
     return {
       userId: authUser.id,
       email: String(authUser.email || email),
+    };
+  }
+
+  return null;
+}
+
+export async function findUserByEmail(email) {
+  const admin = createSupabaseAdminClient();
+  if (!admin) return null;
+
+  const normalizedEmail = String(email || '').trim().toLowerCase();
+  const { data, error } = await admin
+    .from('profiles')
+    .select('id,email')
+    .eq('email', normalizedEmail)
+    .maybeSingle();
+
+  if (!error && data?.id) {
+    return {
+      userId: data.id,
+      email: typeof data.email === 'string' && data.email ? data.email : normalizedEmail,
+    };
+  }
+
+  const authUser = await findAuthUser(admin, normalizedEmail, '');
+  if (authUser?.id) {
+    return {
+      userId: authUser.id,
+      email: String(authUser.email || normalizedEmail),
     };
   }
 

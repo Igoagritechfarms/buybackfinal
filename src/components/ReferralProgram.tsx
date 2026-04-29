@@ -10,8 +10,9 @@
  * - Social sharing
  */
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { motion } from 'motion/react';
+import { useAuth } from '../contexts/AuthContext';
 import {
   Share2,
   Copy,
@@ -110,16 +111,54 @@ const SAMPLE_REFERRALS: ReferralUser[] = [
 ];
 
 export const ReferralProgram = () => {
+  const { user, profile, loading: authLoading } = useAuth();
   const [copied, setCopied] = useState(false);
   const [selectedTab, setSelectedTab] = useState<'overview' | 'friends' | 'rewards'>('overview');
   const [totalEarnings, setTotalEarnings] = useState(400);
-  const referralCode = 'IGO-RAMESH-2024';
-  const referralLink = `https://igofarmgate.com/join?ref=${referralCode}`;
+
+  const referralCode = useMemo(() => {
+    if (!user) return 'IGO-REFERRAL';
+
+    const source = profile?.full_name?.trim() || user.phone || user.email || user.id;
+    const cleaned = source
+      .replace(/[^a-zA-Z0-9]/g, '')
+      .toUpperCase()
+      .slice(0, 12);
+
+    return `IGO-${cleaned || user.id.slice(0, 8).toUpperCase()}`;
+  }, [profile, user]);
+
+  const referralLink = `https://igofarmgate.com/join?ref=${encodeURIComponent(referralCode)}`;
 
   const handleCopy = () => {
+    if (!user || authLoading) return;
     navigator.clipboard.writeText(referralLink);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleShare = (channel: 'whatsapp' | 'email' | 'sms' | 'more') => {
+    if (!user || authLoading) return;
+    const message = `Join IGO Farmgate and earn rewards with my referral link:\n${referralLink}`;
+
+    switch (channel) {
+      case 'whatsapp':
+        window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
+        break;
+      case 'email':
+        window.open(`mailto:?subject=${encodeURIComponent('Join IGO Farmgate')}&body=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
+        break;
+      case 'sms':
+        window.open(`sms:?&body=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
+        break;
+      case 'more':
+        if (navigator.share) {
+          navigator.share({ title: 'Join IGO Farmgate', text: message, url: referralLink }).catch(() => {});
+        } else {
+          window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
+        }
+        break;
+    }
   };
 
   const currentReferrals = 7;
@@ -158,26 +197,37 @@ export const ReferralProgram = () => {
           <h3 className="text-xl font-bold text-agri-earth-900 mb-6">Your Referral Link</h3>
 
           {/* Link Display */}
-          <div className="bg-white border-2 border-agri-green-300 rounded-xl p-4 mb-4 flex items-center justify-between gap-4">
-            <div className="flex-1 min-w-0">
-              <p className="text-sm text-agri-earth-600 mb-1">Share this link:</p>
-              <p className="text-sm font-mono text-agri-green-600 truncate">{referralLink}</p>
+          <div className="bg-white border-2 border-agri-green-300 rounded-xl p-4 mb-4">
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-agri-earth-600 mb-1">Share this personalized referral link</p>
+                  <p className="text-sm font-mono text-agri-green-600 truncate">{authLoading ? 'Generating your link...' : referralLink}</p>
+                </div>
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={handleCopy}
+                  disabled={!user || authLoading}
+                  className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-2 flex-shrink-0 ${user && !authLoading ? 'bg-agri-green-600 text-white hover:bg-agri-green-700' : 'bg-gray-200 text-gray-600 cursor-not-allowed'}`}
+                >
+                  {copied ? <Check size={18} /> : <Copy size={18} />}
+                  {copied ? 'Copied!' : 'Copy'}
+                </motion.button>
+              </div>
+
+              {!user && !authLoading && (
+                <div className="rounded-2xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
+                  Log in to generate your unique referral code and start sharing your link.
+                </div>
+              )}
             </div>
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={handleCopy}
-              className="px-4 py-2 bg-agri-green-600 text-white rounded-lg hover:bg-agri-green-700 transition-colors flex items-center gap-2 flex-shrink-0"
-            >
-              {copied ? <Check size={18} /> : <Copy size={18} />}
-              {copied ? 'Copied!' : 'Copy'}
-            </motion.button>
           </div>
 
           {/* Referral Code */}
           <div className="bg-agri-earth-50 rounded-xl p-4 mb-6">
             <p className="text-xs text-agri-earth-600 uppercase font-bold tracking-wide mb-2">Your Referral Code</p>
-            <p className="text-2xl font-black text-agri-green-600 font-mono">{referralCode}</p>
+            <p className="text-2xl font-black text-agri-green-600 font-mono">{authLoading ? 'Loading...' : referralCode}</p>
           </div>
 
           {/* Quick Share Buttons */}
@@ -185,7 +235,9 @@ export const ReferralProgram = () => {
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className="p-4 bg-blue-100 text-blue-600 rounded-xl hover:bg-blue-200 transition-colors flex flex-col items-center gap-2 font-semibold"
+              onClick={() => handleShare('whatsapp')}
+              disabled={!user || authLoading}
+              className={`p-4 rounded-xl transition-colors flex flex-col items-center gap-2 font-semibold ${user && !authLoading ? 'bg-blue-100 text-blue-600 hover:bg-blue-200' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
             >
               <MessageSquare size={24} />
               <span className="text-xs">WhatsApp</span>
@@ -193,7 +245,9 @@ export const ReferralProgram = () => {
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className="p-4 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 transition-colors flex flex-col items-center gap-2 font-semibold"
+              onClick={() => handleShare('email')}
+              disabled={!user || authLoading}
+              className={`p-4 rounded-xl transition-colors flex flex-col items-center gap-2 font-semibold ${user && !authLoading ? 'bg-blue-50 text-blue-600 hover:bg-blue-100' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
             >
               <Mail size={24} />
               <span className="text-xs">Email</span>
@@ -201,7 +255,9 @@ export const ReferralProgram = () => {
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className="p-4 bg-green-100 text-green-600 rounded-xl hover:bg-green-200 transition-colors flex flex-col items-center gap-2 font-semibold"
+              onClick={() => handleShare('sms')}
+              disabled={!user || authLoading}
+              className={`p-4 rounded-xl transition-colors flex flex-col items-center gap-2 font-semibold ${user && !authLoading ? 'bg-green-100 text-green-600 hover:bg-green-200' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
             >
               <Smartphone size={24} />
               <span className="text-xs">SMS</span>
@@ -209,7 +265,9 @@ export const ReferralProgram = () => {
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className="p-4 bg-purple-100 text-purple-600 rounded-xl hover:bg-purple-200 transition-colors flex flex-col items-center gap-2 font-semibold"
+              onClick={() => handleShare('more')}
+              disabled={!user || authLoading}
+              className={`p-4 rounded-xl transition-colors flex flex-col items-center gap-2 font-semibold ${user && !authLoading ? 'bg-purple-100 text-purple-600 hover:bg-purple-200' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
             >
               <Share2 size={24} />
               <span className="text-xs">More</span>

@@ -19,7 +19,6 @@ export const Navbar = () => {
     { label: t('nav_home'), to: '/' },
     { label: t('nav_market'), to: '/market' },
     { label: 'Products', to: '/catalog' },
-    { label: t('nav_earn_rewards'), to: '/referrals' },
     { label: t('nav_contact'), to: '/contact' },
   ];
 
@@ -67,11 +66,10 @@ export const Navbar = () => {
                 to={link.to}
                 className={`relative px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 whitespace-nowrap ${
                   location.pathname === link.to
-                    ? 'text-green-700 bg-green-50 font-semibold'
+                    ? 'text-green-700 font-semibold'
                     : 'text-gray-600 hover:text-green-700 hover:bg-green-50/80'
                 }`}
               >
-                {link.label}
                 {location.pathname === link.to && (
                   <motion.div
                     layoutId="navbar-indicator"
@@ -79,6 +77,7 @@ export const Navbar = () => {
                     transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                   />
                 )}
+                <span className="relative z-10">{link.label}</span>
               </Link>
             </motion.div>
           ))}
@@ -86,14 +85,6 @@ export const Navbar = () => {
 
         <div className="hidden md:flex items-center gap-2">
           <LanguageToggle />
-
-          <Link
-            to="/settings"
-            className="px-3 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-green-700 hover:bg-green-50 transition-all duration-200 flex items-center gap-1"
-          >
-            {t('nav_settings')}
-            <ChevronDown size={14} />
-          </Link>
 
           {user ? (
             <Link
@@ -178,14 +169,6 @@ export const Navbar = () => {
                 </Link>
               </motion.div>
               <motion.div className="pt-1" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}>
-                <Link
-                  to="/settings"
-                  className="block text-center px-4 py-3 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50"
-                >
-                  Settings
-                </Link>
-              </motion.div>
-              <motion.div className="pt-1" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.45 }}>
                 {user ? (
                   <Link
                     to="/dashboard"
