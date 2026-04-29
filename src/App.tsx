@@ -9,6 +9,9 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
 import { LiveChat } from './components/LiveChat';
+import { WhatsAppButton } from './components/WhatsAppButton';
+import { ScrollToTopButton } from './components/ScrollToTop';
+import { FloatingMobileCTA } from './components/FloatingMobileCTA';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AdminRoute } from './components/AdminRoute';
 import { Home } from './pages/Home';
@@ -46,7 +49,7 @@ const AppRoutes = () => {
   return (
     <>
       {!isAdminRoute && <Navbar />}
-      <div className={isAdminRoute ? '' : 'pt-[64px]'}>
+      <div className={isAdminRoute ? '' : 'pt-[64px] pb-[72px] md:pb-0'}>
         <AnimatePresence mode="wait">
           <Routes location={location}>
             {/* Public Routes */}
@@ -100,6 +103,9 @@ const AppRoutes = () => {
       </div>
       {!isAdminRoute && <Footer />}
       {!isAdminRoute && <LiveChat />}
+      {!isAdminRoute && <WhatsAppButton />}
+      {!isAdminRoute && <ScrollToTopButton />}
+      {!isAdminRoute && <FloatingMobileCTA />}
     </>
   );
 };

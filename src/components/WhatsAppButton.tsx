@@ -2,7 +2,7 @@ import { motion } from 'motion/react';
 
 export const WhatsAppButton = () => (
   <motion.a
-    href="https://wa.me/919999999999?text=Hello%20IGO%20Agritech%2C%20I%20want%20to%20know%20more%20about%20the%20IGO%20Farmgate%20Mandi%20program."
+    href="https://wa.me/918925893321?text=Hello%20IGO%20Agritech%2C%20I%20want%20to%20know%20more%20about%20the%20Farmgate%20Mandi%20program."
     target="_blank"
     rel="noopener noreferrer"
     initial={{ scale: 0, opacity: 0 }}
@@ -10,7 +10,7 @@ export const WhatsAppButton = () => (
     transition={{ delay: 1.5, type: 'spring', stiffness: 200 }}
     whileHover={{ scale: 1.1 }}
     whileTap={{ scale: 0.95 }}
-    className="fixed bottom-6 right-6 z-50 w-14 h-14 bg-[#25D366] rounded-full shadow-2xl shadow-green-500/40 flex items-center justify-center"
+    className="fixed bottom-24 md:bottom-6 right-6 z-50 w-14 h-14 bg-[#25D366] rounded-full shadow-2xl shadow-green-500/40 flex items-center justify-center"
     title="Chat with us on WhatsApp"
   >
     <svg width="28" height="28" viewBox="0 0 24 24" fill="white">

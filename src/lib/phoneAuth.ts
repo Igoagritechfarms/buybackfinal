@@ -53,11 +53,14 @@ export async function loginWithOtp(phone: string, token: string): Promise<User> 
 
 // ─── Login with Password ──────────────────────────────────────────────────────
 
-export async function loginWithPassword(phone: string, password: string): Promise<User> {
-  const digits = phone.replace(/\D/g, '').slice(-10);
-  const email = `91${digits}@phone.farmgate`;
+export async function loginWithPassword(phoneOrEmail: string, password: string): Promise<User> {
+  const input = phoneOrEmail.trim();
+  // If it looks like an email, use directly; otherwise derive from phone number
+  const email = input.includes('@')
+    ? input.toLowerCase()
+    : `91${input.replace(/\D/g, '').slice(-10)}@phone.farmgate`;
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) throw new Error('Invalid credentials. Please check your phone/password.');
+  if (error) throw new Error('Invalid credentials. Please check your details and try again.');
   if (!data.user) throw new Error('Login failed. Please try again.');
   return data.user;
 }

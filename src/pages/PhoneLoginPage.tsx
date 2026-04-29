@@ -60,12 +60,13 @@ export const PhoneLoginPage = () => {
 
   const isPhoneValid = useMemo(() => isValidIndianMobile(identifier), [identifier]);
   const isEmailValid = useMemo(() => isValidEmail(identifier), [identifier]);
+  const isPasswordIdentifierValid = useMemo(() => isPhoneValid || isEmailValid, [isPhoneValid, isEmailValid]);
   const canSubmit = useMemo(() => {
-    if (method === 'password') return isPhoneValid && password.length >= 6;
+    if (method === 'password') return isPasswordIdentifierValid && password.length >= 6;
     if (method === 'otp-phone') return isPhoneValid;
     if (method === 'otp-email') return isEmailValid;
     return false;
-  }, [method, isPhoneValid, isEmailValid, password]);
+  }, [method, isPasswordIdentifierValid, isPhoneValid, isEmailValid, password]);
 
   const canVerifyOtp = useMemo(() => otpToken.length === OTP_LENGTH, [otpToken]);
 
@@ -254,20 +255,26 @@ export const PhoneLoginPage = () => {
                 <>
                   <div>
                     <label className="block text-xs font-bold text-gray-500 uppercase mb-2">
-                      {method === 'otp-email' ? 'Email Address' : 'Mobile Number'}
+                      {method === 'otp-email' ? 'Email Address' : method === 'password' ? 'Mobile Number or Email' : 'Mobile Number'}
                     </label>
-                    <div className={`flex gap-2 ${method === 'otp-email' ? '' : 'items-center'}`}>
+                    <div className={`flex gap-2 ${method === 'otp-phone' ? 'items-center' : ''}`}>
                       {method === 'otp-phone' && (
                         <span className="flex items-center bg-gray-50 border border-gray-200 px-3 rounded-xl text-gray-600 font-bold">+91</span>
                       )}
                       <input
-                        type={method === 'otp-email' ? 'email' : 'tel'}
+                        type={method === 'otp-email' ? 'email' : method === 'otp-phone' ? 'tel' : 'text'}
                         maxLength={method === 'otp-phone' ? 10 : undefined}
-                        placeholder={method === 'otp-email' ? 'your@email.com' : '10-digit number'}
+                        placeholder={
+                          method === 'otp-email' ? 'your@email.com'
+                          : method === 'password' ? '10-digit number or email'
+                          : '10-digit number'
+                        }
                         value={identifier}
                         onChange={e => {
                           const value = method === 'otp-phone'
                             ? sanitizeToIndianMobileDigits(e.target.value)
+                            : method === 'password'
+                            ? e.target.value.trim()
                             : sanitizeToEmail(e.target.value);
                           setIdentifier(value);
                         }}

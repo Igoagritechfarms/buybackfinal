@@ -3,23 +3,20 @@ import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { Menu, X, ChevronDown, ShoppingCart, User, LogIn } from 'lucide-react';
 import { BrandLogo } from './BrandLogo';
-import { LanguageToggle } from './LanguageToggle';
-import { useI18n } from '../lib/i18n';
 import { useAuth } from '../contexts/AuthContext';
 
 export const Navbar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const location = useLocation();
-  const { t } = useI18n();
   const { user, profile } = useAuth();
   const isHome = location.pathname === '/';
 
   const navLinks = [
-    { label: t('nav_home'), to: '/' },
-    { label: t('nav_market'), to: '/market' },
+    { label: 'Home', to: '/' },
+    { label: 'Market Prices', to: '/market' },
     { label: 'Products', to: '/catalog' },
-    { label: t('nav_contact'), to: '/contact' },
+    { label: 'Contact', to: '/contact' },
   ];
 
   useEffect(() => {
@@ -84,8 +81,6 @@ export const Navbar = () => {
         </nav>
 
         <div className="hidden md:flex items-center gap-2">
-          <LanguageToggle />
-
           {user ? (
             <Link
               to="/dashboard"
@@ -110,7 +105,7 @@ export const Navbar = () => {
               className="flex items-center gap-2 px-5 py-2.5 bg-green-600 hover:bg-green-700 text-white text-sm font-bold rounded-xl shadow-md hover:shadow-lg transition-all duration-200"
             >
               <ShoppingCart size={15} />
-              {t('nav_sell')}
+              Sell Produce
             </Link>
           </motion.div>
         </div>
@@ -156,16 +151,13 @@ export const Navbar = () => {
                   </Link>
                 </motion.div>
               ))}
-              <motion.div className="pt-3" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}>
-                <LanguageToggle />
-              </motion.div>
-              <motion.div className="pt-2" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.35 }}>
+              <motion.div className="pt-2" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}>
                 <Link
                   to="/sell"
                   className="flex items-center justify-center gap-2 w-full py-3 bg-lime-500 text-white font-bold rounded-xl"
                 >
                   <ShoppingCart size={16} />
-                  {t('nav_sell')}
+                  Sell Produce
                 </Link>
               </motion.div>
               <motion.div className="pt-1" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}>

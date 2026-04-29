@@ -1,5 +1,10 @@
-import 'dotenv/config';
+import { config } from 'dotenv';
+import { fileURLToPath } from 'url';
+import { dirname, resolve } from 'path';
 
-// Local development can read values from .env.
-// Vercel production should provide required server-side env variables
-// through Project Settings -> Environment Variables, then redeploy.
+const __serverDir = dirname(fileURLToPath(import.meta.url));
+
+// Load server/.env first (works whether launched from project root or server/)
+config({ path: resolve(__serverDir, '.env') });
+// Then fall back to CWD/.env (Vercel / production via env vars)
+config();
