@@ -66,7 +66,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const initialUser = initialSession?.user ?? null;
         setUser(initialUser);
 
-        await loadProfile(initialUser);
+        // Fire profile load without awaiting — it has its own profileLoading state.
+        // Awaiting here blocks setLoading(false) and freezes the whole app on the spinner.
+        void loadProfile(initialUser);
       } finally {
         if (!cancelled) {
           setLoading(false);

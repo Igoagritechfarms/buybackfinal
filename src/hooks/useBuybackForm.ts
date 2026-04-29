@@ -9,7 +9,6 @@ import {
   mapPhoneAuthError,
   sendPhoneOtp,
   verifyPhoneOtp,
-  type VerifyPhoneOtpOptions,
 } from '../lib/phoneAuth';
 import {
   DEFAULT_PHONE_COUNTRY_CODE,
@@ -44,8 +43,9 @@ export function useBuybackForm(type: 'sell' | 'buy') {
   const submitInFlightRef = useRef(false);
   const { success, error, promise } = useNotification();
 
-  // If already logged in, mark phone as verified using the profile phone
   const isLoggedIn = Boolean(user);
+  // Only skip OTP when logged in AND profile already has a phone number
+  const hasVerifiedAccountPhone = isLoggedIn && Boolean(profile?.phone);
 
   const initialData =
     type === 'sell'
@@ -87,10 +87,10 @@ export function useBuybackForm(type: 'sell' | 'buy') {
 
       const fullPhone = buildE164Phone(data.countryCode, data.phone);
       const verifiedForThisPhone =
-        isLoggedIn || (otpVerified && otpTargetPhone === fullPhone);
+        hasVerifiedAccountPhone || (otpVerified && otpTargetPhone === fullPhone);
 
       if (!verifiedForThisPhone || !fullPhone) {
-        throw new Error('Please verify OTP before continuing.');
+        throw new Error('Please verify your phone number with OTP before continuing.');
       }
 
       const selectedProduct = PRODUCTS.find((p) => p.id === data.product);
@@ -144,7 +144,7 @@ export function useBuybackForm(type: 'sell' | 'buy') {
         submitInFlightRef.current = false;
       }
     },
-    [otpTargetPhone, otpVerified, promise, type, isLoggedIn, navigate]
+    [otpTargetPhone, otpVerified, promise, type, isLoggedIn, hasVerifiedAccountPhone, navigate]
   );
 
   const form = useFormHandler(initialData, schema, handleSubmitForm);
@@ -253,12 +253,7 @@ export function useBuybackForm(type: 'sell' | 'buy') {
       setOtpVerified(false);
       setOtpSent(true);
       startOtpTimer(RESEND_TIMER_SECONDS);
-      if (sendResult.otp) {
-        success(`Your OTP is: ${sendResult.otp}`);
-        form.setFieldValue('otp', sendResult.otp);
-      } else {
-        success('OTP sent successfully');
-      }
+      success('OTP sent to your phone');
     } catch (err) {
       logOtpFailure('Send OTP flow error.', {
         error: err instanceof Error ? err.message : String(err),
@@ -298,26 +293,12 @@ export function useBuybackForm(type: 'sell' | 'buy') {
       verifyOtpInFlightRef.current = true;
       setIsVerifyingOtp(true);
 
-      // Pass the user's name so the server can create/update the profile immediately
-      const verifyOptions: VerifyPhoneOtpOptions = {};
-      const nameValue = String(form.formData.name || '').trim();
-      if (nameValue) verifyOptions.fullName = nameValue;
-
-      const verifyResult = await verifyPhoneOtp(e164Phone, otp, verifyOptions);
-      const authPhone = String(verifyResult.phone || '').trim();
-      if (!authPhone) {
-        throw new Error('Phone verification succeeded but no phone was returned.');
-      }
+      const verifyResult = await verifyPhoneOtp(e164Phone, otp);
+      const authPhone = String(verifyResult.phone || e164Phone).trim();
 
       setOtpTargetPhone(authPhone);
       setOtpVerified(true);
-
-      // Show appropriate message based on whether a new account was created
-      if (verifyResult.isNew === true) {
-        success('Account created successfully');
-      } else {
-        success('Phone verified successfully');
-      }
+      success('Phone verified successfully');
     } catch (err) {
       logOtpFailure('Verify OTP flow error.', {
         error: err instanceof Error ? err.message : String(err),
@@ -350,6 +331,7 @@ export function useBuybackForm(type: 'sell' | 'buy') {
     isOtpVerifiedForCurrentPhone,
     isCurrentPhoneValid,
     isLoggedIn,
+    hasVerifiedAccountPhone,
     isSendingOtp,
     isVerifyingOtp,
     handleSendOtp,

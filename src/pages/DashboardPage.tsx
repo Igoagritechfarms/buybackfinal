@@ -189,12 +189,14 @@ function fromDetails(d: UserFormDetails | null, profileName?: string | null): Fo
   };
 }
 
-function MyDetailsSection({ userId, profileName, phone }: { userId: string; profileName?: string | null; phone?: string | null }) {
+function MyDetailsSection({ userId, profileName, phone: authPhone }: { userId: string; profileName?: string | null; phone?: string | null }) {
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
+  const [editablePhone, setEditablePhone] = useState('');
   const [saved, setSaved] = useState<UserFormDetails | null>(null);
   const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const phone = authPhone;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -202,16 +204,18 @@ function MyDetailsSection({ userId, profileName, phone }: { userId: string; prof
       const data = await getMyFormDetails();
       setSaved(data);
       setForm(fromDetails(data, profileName));
-      setEditing(!data); // auto-open edit if no data yet
+      setEditablePhone(phone ?? data?.phone ?? '');
+      setEditing(!data);
     } catch (err) {
       console.error('[Dashboard] Failed to load user details:', err);
       setSaved(null);
       setForm(fromDetails(null, profileName));
+      setEditablePhone(phone ?? '');
       setEditing(true);
     } finally {
       setLoading(false);
     }
-  }, [profileName]);
+  }, [profileName, phone]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -225,7 +229,7 @@ function MyDetailsSection({ userId, profileName, phone }: { userId: string; prof
       const result = await saveUserFormDetails({
         user_id: userId,
         full_name: form.full_name.trim(),
-        phone: phone ?? undefined,
+        phone: editablePhone.trim() || phone || undefined,
         address: form.address.trim() || undefined,
         city: form.city.trim() || undefined,
         state: form.state.trim() || undefined,
@@ -247,6 +251,7 @@ function MyDetailsSection({ userId, profileName, phone }: { userId: string; prof
 
   const handleCancel = () => {
     setForm(fromDetails(saved, profileName));
+    setEditablePhone(phone ?? saved?.phone ?? '');
     setEditing(false);
   };
 
@@ -308,7 +313,15 @@ function MyDetailsSection({ userId, profileName, phone }: { userId: string; prof
               <Input value={form.full_name} onChange={set('full_name')} placeholder="Your full name" />
             </Field>
             <Field label="Phone">
-              <Input value={phone ?? ''} disabled placeholder="Phone number" />
+              <Input
+                value={phone ? phone : editablePhone}
+                onChange={e => { if (!phone) setEditablePhone(e.target.value); }}
+                disabled={Boolean(phone)}
+                placeholder="e.g. +91 9876543210"
+              />
+              {!phone && (
+                <p className="text-xs text-gray-400 mt-1">Enter your phone number</p>
+              )}
             </Field>
             <Field label="Address">
               <Input value={form.address} onChange={set('address')} placeholder="Street address" />
@@ -777,6 +790,12 @@ export const DashboardPage = () => {
     }
   };
 
+  useEffect(() => {
+    if (!loading && !profileLoading && !user) {
+      navigate('/login', { replace: true });
+    }
+  }, [loading, profileLoading, user, navigate]);
+
   if (loading || profileLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -785,10 +804,7 @@ export const DashboardPage = () => {
     );
   }
 
-  if (!user) {
-    navigate('/login', { replace: true });
-    return null;
-  }
+  if (!user) return null;
 
   const phone = profile?.phone || user?.phone || null;
 

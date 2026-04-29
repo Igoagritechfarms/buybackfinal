@@ -38,6 +38,7 @@ export const BuybackForm = ({ type }: FormProps) => {
     isOtpVerifiedForCurrentPhone,
     isCurrentPhoneValid,
     isLoggedIn,
+    hasVerifiedAccountPhone,
     isSendingOtp,
     isVerifyingOtp,
     canResendOtp,
@@ -66,7 +67,7 @@ export const BuybackForm = ({ type }: FormProps) => {
       return 'Please enter your full name.';
     if (!formData.phone || String(formData.phone).length < 10)
       return 'Please enter a valid 10-digit mobile number.';
-    if (!isLoggedIn && !isOtpVerifiedForCurrentPhone)
+    if (!hasVerifiedAccountPhone && !isOtpVerifiedForCurrentPhone)
       return 'Please verify your phone number with OTP.';
     return '';
   }, [formData.name, formData.phone, isLoggedIn, isOtpVerifiedForCurrentPhone]);
@@ -253,9 +254,9 @@ export const BuybackForm = ({ type }: FormProps) => {
                       setFieldValue('countryCode', DEFAULT_PHONE_COUNTRY_CODE);
                       setFieldValue('phone', sanitizePhoneDigits(e.target.value));
                     }}
-                    disabled={isLoggedIn}
+                    disabled={hasVerifiedAccountPhone}
                     className={`flex-1 p-3 rounded-xl border transition-all focus:ring-2 focus:ring-agri-green-600 outline-none ${
-                      isLoggedIn
+                      hasVerifiedAccountPhone
                         ? 'bg-gray-50 text-gray-500 cursor-not-allowed'
                         : er['phone']
                         ? 'border-red-500 bg-red-50'
@@ -265,8 +266,8 @@ export const BuybackForm = ({ type }: FormProps) => {
                 </div>
                 {renderFieldError('phone')}
 
-                {/* OTP section — skip if logged in */}
-                {isLoggedIn ? (
+                {/* OTP section — skip only if logged in WITH a verified profile phone */}
+                {hasVerifiedAccountPhone ? (
                   <div className="flex items-center gap-2 mt-2 px-3 py-2 bg-green-50 border border-green-200 rounded-xl">
                     <ShieldCheck size={14} className="text-green-600 shrink-0" />
                     <p className="text-xs text-green-700 font-medium">
@@ -296,7 +297,7 @@ export const BuybackForm = ({ type }: FormProps) => {
                 )}
 
                 {/* OTP input */}
-                {!isLoggedIn && otpSent && (
+                {!hasVerifiedAccountPhone && otpSent && (
                   <motion.div
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}

@@ -49,7 +49,7 @@ export const PhoneLoginPage = () => {
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [otpToken, setOtpToken] = useState('');
-  
+
   const [sending, setSending] = useState(false);
   const [loggingIn, setLoggingIn] = useState(false);
   const [resendIn, setResendIn] = useState(0);
@@ -70,127 +70,112 @@ export const PhoneLoginPage = () => {
 
   const canVerifyOtp = useMemo(() => otpToken.length === OTP_LENGTH, [otpToken]);
 
-  // Redirect if already logged in
   useEffect(() => {
     if (!loading && user) {
       navigate(from, { replace: true });
     }
   }, [from, loading, navigate, user]);
 
-  // Resend countdown timer
   useEffect(() => {
-    if (resendIn <= 0) {
-      if (timerRef.current) {
-        window.clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-      return;
-    }
-    timerRef.current = window.setInterval(() => {
-      setResendIn((prev) => prev - 1);
-    }, 1000);
     return () => {
-      if (timerRef.current) window.clearInterval(timerRef.current);
+      if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [resendIn]);
+  }, []);
+
+  const startResendTimer = useCallback(() => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    setResendIn(RESEND_SECONDS);
+    timerRef.current = window.setInterval(() => {
+      setResendIn((prev) => {
+        if (prev <= 1) {
+          clearInterval(timerRef.current!);
+          timerRef.current = null;
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  }, []);
 
   const handleLogin = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
-    if (loggingIn || sending) return;
     setErrorMessage('');
     setInfoMessage('');
+
+    if (step === 'otp-verify') {
+      setLoggingIn(true);
+      try {
+        if (method === 'otp-phone') {
+          await loginWithOtp(`+91${identifier}`, otpToken);
+        } else {
+          await loginWithEmailOtp(identifier, otpToken);
+        }
+        // navigation handled by useEffect on user state change
+      } catch (err) {
+        setErrorMessage(mapPhoneAuthError(err, 'verify'));
+      } finally {
+        setLoggingIn(false);
+      }
+      return;
+    }
 
     if (method === 'password') {
       setLoggingIn(true);
       try {
         await loginWithPassword(identifier, password);
-        navigate(from, { replace: true });
-      } catch (error: unknown) {
-        setErrorMessage(mapPhoneAuthError(error, 'login'));
+        // navigation handled by useEffect
+      } catch (err) {
+        setErrorMessage(mapPhoneAuthError(err, 'login'));
       } finally {
         setLoggingIn(false);
       }
-      return;
-    }
-
-    // OTP Method
-    if (step === 'input') {
+    } else {
       setSending(true);
       try {
         if (method === 'otp-phone') {
-          await sendPhoneOtp(identifier);
-          setInfoMessage(`OTP sent to +91 ${identifier}.`);
+          await sendPhoneOtp(`+91${identifier}`);
         } else {
           await sendEmailOtp(identifier);
-          setInfoMessage(`OTP sent to ${identifier}. Check your inbox.`);
         }
         setStep('otp-verify');
-        setResendIn(RESEND_SECONDS);
-        setOtpToken('');
-      } catch (error: unknown) {
-        setErrorMessage(mapPhoneAuthError(error, 'send'));
+        setInfoMessage('OTP sent! Please check your ' + (method === 'otp-email' ? 'email' : 'phone') + '.');
+        startResendTimer();
+      } catch (err) {
+        setErrorMessage(mapPhoneAuthError(err, 'send'));
       } finally {
         setSending(false);
       }
-    } else {
-      setLoggingIn(true);
-      try {
-        if (method === 'otp-phone') {
-          await loginWithOtp(identifier, otpToken);
-        } else {
-          await loginWithEmailOtp(identifier, otpToken);
-        }
-        navigate(from, { replace: true });
-      } catch (error: unknown) {
-        setErrorMessage(mapPhoneAuthError(error, 'verify'));
-      } finally {
-        setLoggingIn(false);
-      }
     }
-  }, [
-    from,
-    identifier,
-    loggingIn,
-    method,
-    navigate,
-    otpToken,
-    password,
-    sending,
-    step,
-  ]);
+  }, [step, method, identifier, password, otpToken, startResendTimer]);
 
   const handleResendOtp = useCallback(async () => {
-    if (resendIn > 0 || sending || loggingIn) return;
-    if (method === 'otp-phone' && !isPhoneValid) return;
-    if (method === 'otp-email' && !isEmailValid) return;
-
     setErrorMessage('');
     setInfoMessage('');
     setSending(true);
     try {
       if (method === 'otp-phone') {
-        await sendPhoneOtp(identifier);
-        setInfoMessage(`OTP resent to +91 ${identifier}.`);
+        await sendPhoneOtp(`+91${identifier}`);
       } else {
         await sendEmailOtp(identifier);
-        setInfoMessage(`OTP resent to ${identifier}.`);
       }
-      setResendIn(RESEND_SECONDS);
-      setOtpToken('');
-    } catch (error: unknown) {
-      setErrorMessage(mapPhoneAuthError(error, 'send'));
+      setInfoMessage('OTP resent successfully!');
+      startResendTimer();
+    } catch (err) {
+      setErrorMessage(mapPhoneAuthError(err, 'send'));
     } finally {
       setSending(false);
     }
-  }, [identifier, isEmailValid, isPhoneValid, loggingIn, method, resendIn, sending]);
+  }, [method, identifier, startResendTimer]);
 
-  if (loading) {
+  if (loading || (user && !loading)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-green-50">
         <div className="h-10 w-10 animate-spin rounded-full border-4 border-green-600 border-t-transparent" />
       </div>
     );
   }
+
+  void canVerifyOtp;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-emerald-50 flex flex-col">

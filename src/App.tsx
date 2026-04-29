@@ -10,7 +10,7 @@ import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
 import { LiveChat } from './components/LiveChat';
 import { WhatsAppButton } from './components/WhatsAppButton';
-import { ScrollToTopButton } from './components/ScrollToTop';
+import { ScrollToTopButton, ScrollToTop } from './components/ScrollToTop';
 import { FloatingMobileCTA } from './components/FloatingMobileCTA';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AdminRoute } from './components/AdminRoute';
@@ -48,6 +48,7 @@ const AppRoutes = () => {
 
   return (
     <>
+      <ScrollToTop />
       {!isAdminRoute && <Navbar />}
       <div className={isAdminRoute ? '' : 'pt-[64px] pb-[72px] md:pb-0'}>
         <AnimatePresence mode="wait">

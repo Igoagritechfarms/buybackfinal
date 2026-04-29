@@ -1,16 +1,26 @@
-import { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { Menu, X, ChevronDown, ShoppingCart, User, LogIn } from 'lucide-react';
+import { Menu, X, ChevronDown, ShoppingCart, User, LogIn, LogOut } from 'lucide-react';
 import { BrandLogo } from './BrandLogo';
 import { useAuth } from '../contexts/AuthContext';
 
 export const Navbar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
-  const { user, profile } = useAuth();
+  const navigate = useNavigate();
+  const { user, profile, logout } = useAuth();
   const isHome = location.pathname === '/';
+
+  const handleLogout = async () => {
+    setUserMenuOpen(false);
+    setIsMobileOpen(false);
+    try { await logout(); } catch { /* ignore */ }
+    navigate('/login', { replace: true });
+  };
 
   const navLinks = [
     { label: 'Home', to: '/' },
@@ -28,6 +38,16 @@ export const Navbar = () => {
   useEffect(() => {
     setIsMobileOpen(false);
   }, [location]);
+
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
 
   const navBg = isScrolled || !isHome
     ? 'bg-white shadow-md border-b border-gray-100'
@@ -82,13 +102,44 @@ export const Navbar = () => {
 
         <div className="hidden md:flex items-center gap-2">
           {user ? (
-            <Link
-              to="/dashboard"
-              title={profile?.full_name ?? 'My Account'}
-              className="flex items-center justify-center w-9 h-9 rounded-xl bg-green-100 hover:bg-green-200 text-green-700 font-bold text-sm transition-all duration-200"
-            >
-              {profile?.full_name?.charAt(0)?.toUpperCase() ?? <User size={16} />}
-            </Link>
+            <div ref={userMenuRef} className="relative">
+              <button
+                onClick={() => setUserMenuOpen((v) => !v)}
+                className="flex items-center gap-2 px-3 py-2 rounded-xl bg-green-50 hover:bg-green-100 text-green-700 font-semibold text-sm transition-all duration-200"
+              >
+                <div className="w-6 h-6 rounded-full bg-green-600 text-white flex items-center justify-center text-xs font-bold shrink-0">
+                  {profile?.full_name?.charAt(0)?.toUpperCase() ?? <User size={12} />}
+                </div>
+                <span className="max-w-[100px] truncate">{profile?.full_name?.split(' ')[0] ?? 'Account'}</span>
+                <ChevronDown size={13} className={`transition-transform duration-200 ${userMenuOpen ? 'rotate-180' : ''}`} />
+              </button>
+              <AnimatePresence>
+                {userMenuOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 6, scale: 0.97 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 6, scale: 0.97 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute right-0 top-full mt-2 w-44 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden z-50"
+                  >
+                    <Link
+                      to="/dashboard"
+                      onClick={() => setUserMenuOpen(false)}
+                      className="flex items-center gap-2 px-4 py-3 text-sm text-gray-700 hover:bg-green-50 hover:text-green-700 transition"
+                    >
+                      <User size={14} /> My Account
+                    </Link>
+                    <div className="border-t border-gray-100" />
+                    <button
+                      onClick={handleLogout}
+                      className="w-full flex items-center gap-2 px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition"
+                    >
+                      <LogOut size={14} /> Logout
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           ) : (
             <Link
               to="/login"
@@ -131,7 +182,7 @@ export const Navbar = () => {
             transition={{ duration: 0.3 }}
             className="md:hidden bg-white border-t border-gray-100 shadow-xl overflow-hidden"
           >
-            <div className="px-4 py-4 space-y-1">
+            <div className="px-4 py-4 space-y-1 max-h-[calc(100vh-64px)] overflow-y-auto">
               {navLinks.map((link, index) => (
                 <motion.div
                   key={link.to}
@@ -160,15 +211,24 @@ export const Navbar = () => {
                   Sell Produce
                 </Link>
               </motion.div>
-              <motion.div className="pt-1" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}>
+              <motion.div className="pt-1 space-y-1" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}>
                 {user ? (
-                  <Link
-                    to="/dashboard"
-                    className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-sm font-medium text-green-700 bg-green-50 hover:bg-green-100"
-                  >
-                    <User size={15} />
-                    {profile?.full_name ? `Hi, ${profile.full_name.split(' ')[0]}` : 'My Account'}
-                  </Link>
+                  <>
+                    <Link
+                      to="/dashboard"
+                      className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-sm font-medium text-green-700 bg-green-50 hover:bg-green-100"
+                    >
+                      <User size={15} />
+                      {profile?.full_name ? `Hi, ${profile.full_name.split(' ')[0]}` : 'My Account'}
+                    </Link>
+                    <button
+                      onClick={handleLogout}
+                      className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 transition"
+                    >
+                      <LogOut size={15} />
+                      Logout
+                    </button>
+                  </>
                 ) : (
                   <Link
                     to="/login"
