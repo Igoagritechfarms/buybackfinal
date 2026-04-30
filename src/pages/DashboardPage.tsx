@@ -17,11 +17,9 @@ import {
   AlertCircle,
   Download,
   Gift,
-  Settings as SettingsIcon,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { ReferralProgram } from '../components/ReferralProgram';
-import { Settings } from './Settings';
 import {
   getMyFormDetails,
   saveUserFormDetails,
@@ -753,11 +751,11 @@ function SubmissionsSection() {
 
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 
-type DashTab = 'profile' | 'referrals' | 'settings';
+type DashTab = 'profile' | 'referrals';
 
 export const DashboardPage = () => {
   const navigate = useNavigate();
-  const { user, profile, loading, profileLoading, logout } = useAuth();
+  const { user, profile, loading, logout } = useAuth();
   const [loggingOut, setLoggingOut] = useState(false);
   const [activeTab, setActiveTab] = useState<DashTab>('profile');
   const [copiedReferral, setCopiedReferral] = useState(false);
@@ -782,21 +780,22 @@ export const DashboardPage = () => {
     setLoggingOut(true);
     try {
       await logout();
-      navigate('/login', { replace: true });
     } catch {
-      toast.error('Logout failed');
+      // logout already clears local state; ignore server errors
     } finally {
       setLoggingOut(false);
     }
+    navigate('/login', { replace: true });
   };
 
   useEffect(() => {
-    if (!loading && !profileLoading && !user) {
+    // Don't wait for profileLoading — if user is gone, redirect immediately
+    if (!loading && !user) {
       navigate('/login', { replace: true });
     }
-  }, [loading, profileLoading, user, navigate]);
+  }, [loading, user, navigate]);
 
-  if (loading || profileLoading) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <Loader2 size={32} className="animate-spin text-green-600" />
@@ -811,7 +810,6 @@ export const DashboardPage = () => {
   const dashTabs: { id: DashTab; label: string; icon: React.ElementType }[] = [
     { id: 'profile', label: 'My Profile', icon: User },
     { id: 'referrals', label: 'Referrals', icon: Gift },
-    { id: 'settings', label: 'Settings', icon: SettingsIcon },
   ];
 
   return (
@@ -890,12 +888,6 @@ export const DashboardPage = () => {
           </div>
         )}
 
-        {/* Settings Tab */}
-        {activeTab === 'settings' && (
-          <div className="-mx-4 sm:-mx-6">
-            <Settings />
-          </div>
-        )}
       </main>
     </div>
   );

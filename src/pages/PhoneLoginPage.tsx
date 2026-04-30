@@ -42,7 +42,9 @@ export const PhoneLoginPage = () => {
   const location = useLocation();
   const { user, loading } = useAuth();
 
-  const from = (location.state as { from?: { pathname: string } } | null)?.from?.pathname ?? '/dashboard';
+  const rawFrom = (location.state as { from?: { pathname: string } } | null)?.from?.pathname;
+  // Guard against redirect loops back to auth pages
+  const from = rawFrom && rawFrom !== '/login' && rawFrom !== '/signup' ? rawFrom : '/dashboard';
 
   const [method, setMethod] = useState<LoginMethod>('password');
   const [step, setStep] = useState<'input' | 'otp-verify'>('input');

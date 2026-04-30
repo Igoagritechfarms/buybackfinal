@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   User, Bell, Shield, Lock, Camera, Phone, Mail,
   MapPin, Save, Check, Eye, EyeOff, Smartphone,
-  Globe, TrendingUp, Tag, Megaphone, AlertTriangle,
+  Globe, TrendingUp, Tag, Megaphone,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -336,19 +336,6 @@ export const Settings = () => {
                 </div>
               </div>
 
-              {/* Danger Zone */}
-              <div className="bg-red-50 border border-red-100 rounded-2xl p-6">
-                <div className="flex items-start gap-3 mb-4">
-                  <AlertTriangle size={18} className="text-red-500 mt-0.5" />
-                  <div>
-                    <h4 className="font-bold text-red-900">Danger Zone</h4>
-                    <p className="text-xs text-red-600 mt-0.5">These actions are irreversible. Please be certain.</p>
-                  </div>
-                </div>
-                <button className="px-5 py-2 border border-red-300 text-red-600 text-sm font-semibold rounded-xl hover:bg-red-100 transition-colors">
-                  Delete Account
-                </button>
-              </div>
             </motion.div>
           )}
 

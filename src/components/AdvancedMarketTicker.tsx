@@ -1,5 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
-import { motion } from 'motion/react';
+import { useEffect, useRef } from 'react';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 import { useMarketRates } from '../hooks/useMarketRates';
 
@@ -8,72 +7,76 @@ interface TickerItemProps {
   price: number;
   change: number;
   unit: string;
-  category: string;
 }
 
-const TickerCard = ({ name, price, change, unit, category }: TickerItemProps) => {
+const TickerCard = ({ name, price, change, unit }: TickerItemProps) => {
   const isUp = change > 0;
   const isDown = change < 0;
-  const percentChange = ((change / price) * 100).toFixed(2);
+  const percentChange = price > 0 ? ((Math.abs(change) / price) * 100).toFixed(1) : '0.0';
 
   return (
-    <motion.div
-      initial={{ opacity: 0.2, y: 2 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="flex-shrink-0 min-w-[8rem] w-[8rem] px-1.5 py-1 border-r border-slate-700/35 bg-slate-900/60 hover:bg-slate-800/40 transition-colors cursor-pointer text-[11px]"
-    >
+    <div className="flex-shrink-0 min-w-[8rem] w-[8rem] px-1.5 py-1 border-r border-slate-700/35 bg-slate-900/60 hover:bg-slate-800/40 transition-colors cursor-pointer text-[11px]">
       <div className="flex items-center justify-between gap-1 mb-0.5">
         <span className="text-white font-semibold truncate" title={name}>{name}</span>
         <span className={`px-1 rounded text-[10px] ${isUp ? 'bg-emerald-500/20 text-emerald-300' : isDown ? 'bg-red-500/20 text-red-300' : 'bg-slate-700/30 text-slate-300'}`}>
-          {isUp ? '+' : ''}{percentChange}%
+          {isUp ? <TrendingUp size={9} className="inline" /> : isDown ? <TrendingDown size={9} className="inline" /> : null}
+          {isUp ? '+' : isDown ? '-' : ''}{percentChange}%
         </span>
       </div>
       <div className="flex items-center justify-between">
         <span className="text-emerald-300 font-bold text-sm">₹{price}</span>
         <span className="text-slate-400 text-[10px]">/{unit}</span>
       </div>
-    </motion.div>
+    </div>
   );
 };
 
 export const AdvancedMarketTicker = () => {
   const { rates, isLoading } = useMarketRates();
   const trackRef = useRef<HTMLDivElement>(null);
-  const [offset, setOffset] = useState(0);
+  const offsetRef = useRef(0);
+  const isPausedRef = useRef(false);
 
-  // Create ticker items from rates
   const tickerItems = rates.map((r) => ({
     name: r.name,
     price: r.price,
     change: r.price - (r.prev_price || r.price),
     unit: r.unit,
-    category: r.category || 'General',
   }));
 
-  // Duplicate items for seamless infinite scroll in a single thin row
+  // Triplicate for seamless loop
   const items = [...tickerItems, ...tickerItems, ...tickerItems];
 
   useEffect(() => {
     let animationId: number;
-    const speed = 0.5; // pixels per frame
-    let currentOffset = 0;
+    const speed = 40; // pixels per second
+    let lastTime = performance.now();
 
     const animate = () => {
-      animationId = requestAnimationFrame(() => {
-        currentOffset += speed;
-        if (trackRef.current) {
-          const contentWidth = trackRef.current.offsetWidth;
-          const totalWidth = contentWidth / 3; // Since we triplicated items
-          if (currentOffset >= totalWidth) {
-            currentOffset = 0;
-          }
-          setOffset(currentOffset);
-        }
-        animate();
-      });
+      animationId = requestAnimationFrame(animate);
+
+      if (isPausedRef.current || !trackRef.current) {
+        lastTime = performance.now();
+        return;
+      }
+
+      const now = performance.now();
+      const delta = (now - lastTime) / 1000;
+      lastTime = now;
+
+      const track = trackRef.current;
+      const totalWidth = track.offsetWidth;
+      const resetAt = totalWidth / 3; // one-third since items are triplicated
+
+      let next = offsetRef.current + speed * delta;
+      if (resetAt > 0) {
+        next %= resetAt;
+      }
+      offsetRef.current = next;
+      track.style.transform = `translateX(-${next}px)`;
     };
 
-    animate();
+    animationId = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(animationId);
   }, []);
 
@@ -88,28 +91,30 @@ export const AdvancedMarketTicker = () => {
       </div>
 
       {isLoading ? (
-        <div className="px-2 py-3 text-center">
-          <div className="animate-pulse flex gap-2">
+        <div className="px-2 py-3">
+          <div className="flex gap-2">
             {[...Array(6)].map((_, i) => (
-              <div key={i} className="h-10 w-24 bg-slate-800 rounded-md" />
+              <div key={i} className="h-10 w-24 bg-slate-800 rounded-md animate-pulse" />
             ))}
           </div>
         </div>
       ) : (
-        <div className="overflow-hidden">
-          <motion.div
+        <div
+          className="overflow-hidden"
+          onMouseEnter={() => { isPausedRef.current = true; }}
+          onMouseLeave={() => { isPausedRef.current = false; }}
+        >
+          <div
             ref={trackRef}
-            animate={{ x: -offset }}
-            transition={{ duration: 0, ease: 'linear' }}
             className="flex gap-0"
+            style={{ willChange: 'transform' }}
           >
             {items.map((item, i) => (
               <TickerCard key={`${item.name}-${i}`} {...item} />
             ))}
-          </motion.div>
+          </div>
         </div>
       )}
-
     </section>
   );
 };

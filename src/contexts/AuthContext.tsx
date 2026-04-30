@@ -55,6 +55,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let cancelled = false;
 
     const initialize = async () => {
+      // Safety timeout — if getSession hangs (e.g. slow network token refresh),
+      // unblock the UI after 4 seconds so the login form becomes accessible.
+      const timeoutId = window.setTimeout(() => {
+        if (!cancelled) setLoading(false);
+      }, 4000);
+
       try {
         const {
           data: { session: initialSession },
@@ -70,6 +76,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Awaiting here blocks setLoading(false) and freezes the whole app on the spinner.
         void loadProfile(initialUser);
       } finally {
+        clearTimeout(timeoutId);
         if (!cancelled) {
           setLoading(false);
         }
@@ -101,14 +108,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [loadProfile, user]);
 
   const logout = useCallback(async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      throw error;
-    }
-
+    // Clear local state immediately so UI updates right away
     setUser(null);
     setProfile(null);
     setSession(null);
+
+    // Invalidate server session — best effort, don't block or throw on failure
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      console.warn('[AuthContext] signOut error (local session cleared):', error.message);
+    }
   }, []);
 
   return (

@@ -22,6 +22,10 @@ export const supabase = createClient(
       persistSession: true,
       autoRefreshToken: true,
       detectSessionInUrl: true,
+      // Bypass the Web Locks API used by GoTrue — it causes 5-second hangs
+      // when locks are orphaned (multiple tabs, hot reload, etc.)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      lock: (async (_name: string, _acquireTimeout: number, fn: () => Promise<any>) => fn()) as any,
     },
   }
 );
