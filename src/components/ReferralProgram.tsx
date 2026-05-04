@@ -1,18 +1,7 @@
-/**
- * Referral Program Widget
- * Phase 0 Feature: Viral growth mechanism
- *
- * Features:
- * - Unique referral link generation
- * - Invite friends / family
- * - Track referral rewards
- * - Leaderboard view
- * - Social sharing
- */
-
-import { useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { useAuth } from '../contexts/AuthContext';
+import { getMyReferrals, getMyReferralCode, type Referral } from '../lib/supabase';
 import {
   Share2,
   Copy,
@@ -23,444 +12,339 @@ import {
   MessageSquare,
   Mail,
   Smartphone,
-  Trophy,
   Lock,
-  Unlock
+  Unlock,
+  Loader2,
 } from 'lucide-react';
 
 interface ReferralTier {
   level: number;
   name: string;
   referralsNeeded: number;
-  totalReward: number;
   bonusPerReferral: number;
   badge: string;
   color: string;
-  unlocked: boolean;
 }
 
-interface ReferralUser {
-  name: string;
-  status: 'referred' | 'signed_up' | 'completed_sale';
-  referralBonus: number;
-  date: string;
+const TIERS: ReferralTier[] = [
+  { level: 1, name: 'Starter',    referralsNeeded: 0,  bonusPerReferral: 100, badge: '🌱', color: 'from-blue-500 to-blue-600' },
+  { level: 2, name: 'Grower',     referralsNeeded: 5,  bonusPerReferral: 150, badge: '🌿', color: 'from-green-500 to-green-600' },
+  { level: 3, name: 'Pro Farmer', referralsNeeded: 15, bonusPerReferral: 200, badge: '🌾', color: 'from-amber-500 to-amber-600' },
+  { level: 4, name: 'Elite',      referralsNeeded: 30, bonusPerReferral: 300, badge: '👑', color: 'from-purple-500 to-purple-600' },
+];
+
+function getTier(count: number): ReferralTier {
+  for (let i = TIERS.length - 1; i >= 0; i--) {
+    const tier = TIERS[i];
+    if (tier && count >= tier.referralsNeeded) return tier;
+  }
+  return TIERS[0]!;
 }
 
-const REFERRAL_TIERS: ReferralTier[] = [
-  {
-    level: 1,
-    name: 'Starter',
-    referralsNeeded: 0,
-    totalReward: 0,
-    bonusPerReferral: 100,
-    badge: '🌱',
-    color: 'from-blue-500 to-blue-600',
-    unlocked: true
-  },
-  {
-    level: 2,
-    name: 'Grower',
-    referralsNeeded: 5,
-    totalReward: 500,
-    bonusPerReferral: 150,
-    badge: '🌿',
-    color: 'from-green-500 to-green-600',
-    unlocked: true
-  },
-  {
-    level: 3,
-    name: 'Pro Farmer',
-    referralsNeeded: 15,
-    totalReward: 2000,
-    bonusPerReferral: 200,
-    badge: '🌾',
-    color: 'from-amber-500 to-amber-600',
-    unlocked: false
-  },
-  {
-    level: 4,
-    name: 'Elite',
-    referralsNeeded: 30,
-    totalReward: 5000,
-    bonusPerReferral: 300,
-    badge: '👑',
-    color: 'from-purple-500 to-purple-600',
-    unlocked: false
-  },
-];
+function getNextTier(current: ReferralTier): ReferralTier | null {
+  const idx = TIERS.findIndex(t => t.level === current.level);
+  return idx < TIERS.length - 1 ? (TIERS[idx + 1] ?? null) : null;
+}
 
-const SAMPLE_REFERRALS: ReferralUser[] = [
-  {
-    name: 'Ramesh Kumar',
-    status: 'completed_sale',
-    referralBonus: 250,
-    date: '2 days ago'
-  },
-  {
-    name: 'Priya Sharma',
-    status: 'signed_up',
-    referralBonus: 150,
-    date: '1 week ago'
-  },
-  {
-    name: 'Amit Patel',
-    status: 'referred',
-    referralBonus: 0,
-    date: '10 days ago'
-  },
-];
+function formatDate(iso: string): string {
+  const d = new Date(iso);
+  const diff = Date.now() - d.getTime();
+  const days = Math.floor(diff / 86400000);
+  if (days === 0) return 'Today';
+  if (days === 1) return 'Yesterday';
+  if (days < 7) return `${days} days ago`;
+  if (days < 30) return `${Math.floor(days / 7)} week${Math.floor(days / 7) > 1 ? 's' : ''} ago`;
+  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+}
 
 export const ReferralProgram = () => {
-  const { user, profile, loading: authLoading } = useAuth();
+  const { user, profile } = useAuth();
+  const [referrals, setReferrals] = useState<Referral[]>([]);
+  const [referralCode, setReferralCode] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
-  const [selectedTab, setSelectedTab] = useState<'overview' | 'friends' | 'rewards'>('overview');
-  const [totalEarnings, setTotalEarnings] = useState(400);
 
-  const referralCode = useMemo(() => {
-    if (!user) return 'IGO-REFERRAL';
+  useEffect(() => {
+    if (!user) { setLoading(false); return; }
+    setLoading(true);
+    Promise.all([getMyReferrals(), getMyReferralCode()]).then(([refs, code]) => {
+      setReferrals(refs);
+      // Fall back to client-computed code if DB column not yet populated
+      if (code) {
+        setReferralCode(code);
+      } else {
+        const src = profile?.full_name?.trim() || user.phone || user.email || user.id;
+        const cleaned = src.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 8);
+        setReferralCode(`IGO-${cleaned || user.id.slice(0, 8).toUpperCase()}`);
+      }
+      setLoading(false);
+    });
+  }, [user, profile]);
 
-    const source = profile?.full_name?.trim() || user.phone || user.email || user.id;
-    const cleaned = source
-      .replace(/[^a-zA-Z0-9]/g, '')
-      .toUpperCase()
-      .slice(0, 12);
+  const referralLink = referralCode
+    ? `${window.location.origin}/join?ref=${encodeURIComponent(referralCode)}`
+    : '';
 
-    return `IGO-${cleaned || user.id.slice(0, 8).toUpperCase()}`;
-  }, [profile, user]);
-
-  const referralLink = `https://igofarmgate.com/join?ref=${encodeURIComponent(referralCode)}`;
+  const totalEarnings = referrals.reduce((sum, r) => sum + r.bonus_amount, 0);
+  const totalCount = referrals.length;
+  const currentTier = getTier(totalCount);
+  const nextTier = getNextTier(currentTier);
+  const progressPct = nextTier
+    ? Math.min(100, (totalCount / nextTier.referralsNeeded) * 100)
+    : 100;
 
   const handleCopy = () => {
-    if (!user || authLoading) return;
+    if (!referralLink) return;
     navigator.clipboard.writeText(referralLink);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
   const handleShare = (channel: 'whatsapp' | 'email' | 'sms' | 'more') => {
-    if (!user || authLoading) return;
-    const message = `Join IGO Farmgate and earn rewards with my referral link:\n${referralLink}`;
-
+    if (!referralLink) return;
+    const msg = `Join IGO Farmgate Mandi – buy and sell farm produce directly!\nUse my referral link: ${referralLink}`;
     switch (channel) {
       case 'whatsapp':
-        window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
+        window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, '_blank', 'noopener,noreferrer');
         break;
       case 'email':
-        window.open(`mailto:?subject=${encodeURIComponent('Join IGO Farmgate')}&body=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
+        window.open(`mailto:?subject=${encodeURIComponent('Join IGO Farmgate')}&body=${encodeURIComponent(msg)}`, '_blank', 'noopener,noreferrer');
         break;
       case 'sms':
-        window.open(`sms:?&body=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
+        window.open(`sms:?&body=${encodeURIComponent(msg)}`, '_blank', 'noopener,noreferrer');
         break;
       case 'more':
         if (navigator.share) {
-          navigator.share({ title: 'Join IGO Farmgate', text: message, url: referralLink }).catch(() => {});
+          navigator.share({ title: 'Join IGO Farmgate', text: msg, url: referralLink }).catch(() => {});
         } else {
-          window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
+          window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, '_blank', 'noopener,noreferrer');
         }
         break;
     }
   };
 
-  const currentReferrals = 7;
-  const currentTier = REFERRAL_TIERS[1];
-  const nextTier = REFERRAL_TIERS[2];
-  const progressToNextTier = (currentReferrals / nextTier.referralsNeeded) * 100;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <Loader2 size={32} className="animate-spin text-green-600" />
+      </div>
+    );
+  }
 
   return (
-    <div className="w-full max-w-5xl mx-auto">
+    <div className="w-full max-w-5xl mx-auto space-y-8">
+
       {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="text-center mb-12"
-      >
-        <div className="flex items-center justify-center gap-3 mb-4">
-          <div className="p-3 bg-gradient-to-br from-agri-green-500 to-agri-green-600 rounded-xl">
-            <Gift className="text-white" size={28} />
+      <div className="text-center">
+        <div className="flex items-center justify-center gap-3 mb-3">
+          <div className="p-3 bg-gradient-to-br from-green-500 to-green-600 rounded-xl">
+            <Gift className="text-white" size={24} />
           </div>
-          <h2 className="text-4xl font-black text-agri-earth-900">Earn by Sharing</h2>
+          <h2 className="text-3xl font-black text-gray-900">Earn by Sharing</h2>
         </div>
-        <p className="text-lg text-agri-earth-600">
-          Invite farmers and buyers to IGO. Earn rewards for every successful referral.
-        </p>
-      </motion.div>
+        <p className="text-gray-500">Invite farmers &amp; buyers. Earn ₹{currentTier.bonusPerReferral} for every person who joins.</p>
+      </div>
 
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
-        {/* Referral Link Card */}
+      {/* Main grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        {/* Referral link card */}
         <motion.div
-          initial={{ opacity: 0, x: -20 }}
+          initial={{ opacity: 0, x: -16 }}
           animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.1 }}
-          className="lg:col-span-2 bg-gradient-to-br from-agri-green-50 to-white rounded-3xl p-8 border-2 border-agri-green-200 shadow-xl"
+          className="lg:col-span-2 bg-gradient-to-br from-green-50 to-white rounded-2xl p-6 border-2 border-green-200 shadow-md"
         >
-          <h3 className="text-xl font-bold text-agri-earth-900 mb-6">Your Referral Link</h3>
+          <h3 className="text-base font-bold text-gray-800 mb-4">Your Referral Link</h3>
 
-          {/* Link Display */}
-          <div className="bg-white border-2 border-agri-green-300 rounded-xl p-4 mb-4">
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-agri-earth-600 mb-1">Share this personalized referral link</p>
-                  <p className="text-sm font-mono text-agri-green-600 truncate">{authLoading ? 'Generating your link...' : referralLink}</p>
-                </div>
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={handleCopy}
-                  disabled={!user || authLoading}
-                  className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-2 flex-shrink-0 ${user && !authLoading ? 'bg-agri-green-600 text-white hover:bg-agri-green-700' : 'bg-gray-200 text-gray-600 cursor-not-allowed'}`}
-                >
-                  {copied ? <Check size={18} /> : <Copy size={18} />}
-                  {copied ? 'Copied!' : 'Copy'}
-                </motion.button>
-              </div>
-
-              {!user && !authLoading && (
-                <div className="rounded-2xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
-                  Log in to generate your unique referral code and start sharing your link.
-                </div>
-              )}
-            </div>
+          {/* Link row */}
+          <div className="flex items-center gap-2 bg-white border-2 border-green-200 rounded-xl px-4 py-3 mb-3">
+            <p className="flex-1 text-sm font-mono text-green-700 truncate">
+              {referralLink || 'Generating…'}
+            </p>
+            <button
+              onClick={handleCopy}
+              disabled={!referralLink}
+              className="shrink-0 flex items-center gap-1.5 bg-green-600 text-white text-sm font-semibold px-3 py-1.5 rounded-lg hover:bg-green-700 transition disabled:opacity-50"
+            >
+              {copied ? <Check size={14} /> : <Copy size={14} />}
+              {copied ? 'Copied!' : 'Copy'}
+            </button>
           </div>
 
-          {/* Referral Code */}
-          <div className="bg-agri-earth-50 rounded-xl p-4 mb-6">
-            <p className="text-xs text-agri-earth-600 uppercase font-bold tracking-wide mb-2">Your Referral Code</p>
-            <p className="text-2xl font-black text-agri-green-600 font-mono">{authLoading ? 'Loading...' : referralCode}</p>
+          {/* Code badge */}
+          <div className="bg-gray-50 rounded-xl px-4 py-3 mb-5">
+            <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold mb-0.5">Referral Code</p>
+            <p className="text-xl font-black text-green-600 font-mono">{referralCode ?? '—'}</p>
           </div>
 
-          {/* Quick Share Buttons */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => handleShare('whatsapp')}
-              disabled={!user || authLoading}
-              className={`p-4 rounded-xl transition-colors flex flex-col items-center gap-2 font-semibold ${user && !authLoading ? 'bg-blue-100 text-blue-600 hover:bg-blue-200' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
-            >
-              <MessageSquare size={24} />
-              <span className="text-xs">WhatsApp</span>
-            </motion.button>
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => handleShare('email')}
-              disabled={!user || authLoading}
-              className={`p-4 rounded-xl transition-colors flex flex-col items-center gap-2 font-semibold ${user && !authLoading ? 'bg-blue-50 text-blue-600 hover:bg-blue-100' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
-            >
-              <Mail size={24} />
-              <span className="text-xs">Email</span>
-            </motion.button>
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => handleShare('sms')}
-              disabled={!user || authLoading}
-              className={`p-4 rounded-xl transition-colors flex flex-col items-center gap-2 font-semibold ${user && !authLoading ? 'bg-green-100 text-green-600 hover:bg-green-200' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
-            >
-              <Smartphone size={24} />
-              <span className="text-xs">SMS</span>
-            </motion.button>
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => handleShare('more')}
-              disabled={!user || authLoading}
-              className={`p-4 rounded-xl transition-colors flex flex-col items-center gap-2 font-semibold ${user && !authLoading ? 'bg-purple-100 text-purple-600 hover:bg-purple-200' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
-            >
-              <Share2 size={24} />
-              <span className="text-xs">More</span>
-            </motion.button>
+          {/* Share buttons */}
+          <div className="grid grid-cols-4 gap-2">
+            {[
+              { channel: 'whatsapp' as const, icon: <MessageSquare size={20} />, label: 'WhatsApp', bg: 'bg-green-100 text-green-700 hover:bg-green-200' },
+              { channel: 'email'    as const, icon: <Mail size={20} />,          label: 'Email',    bg: 'bg-blue-50 text-blue-600 hover:bg-blue-100' },
+              { channel: 'sms'     as const, icon: <Smartphone size={20} />,     label: 'SMS',      bg: 'bg-yellow-50 text-yellow-700 hover:bg-yellow-100' },
+              { channel: 'more'    as const, icon: <Share2 size={20} />,         label: 'More',     bg: 'bg-purple-100 text-purple-700 hover:bg-purple-200' },
+            ].map(({ channel, icon, label, bg }) => (
+              <button
+                key={channel}
+                onClick={() => handleShare(channel)}
+                disabled={!referralLink}
+                className={`flex flex-col items-center gap-1.5 rounded-xl py-3 text-xs font-semibold transition disabled:opacity-40 ${bg}`}
+              >
+                {icon}
+                {label}
+              </button>
+            ))}
           </div>
         </motion.div>
 
-        {/* Stats Card */}
+        {/* Stats card */}
         <motion.div
-          initial={{ opacity: 0, x: 20 }}
+          initial={{ opacity: 0, x: 16 }}
           animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.2 }}
-          className="bg-gradient-to-br from-agri-green-600 to-agri-green-700 rounded-3xl p-8 text-white shadow-xl"
+          className="bg-gradient-to-br from-green-600 to-green-700 rounded-2xl p-6 text-white shadow-md flex flex-col justify-between"
         >
-          <div className="mb-8">
-            <p className="text-green-100 text-sm font-semibold mb-2">Your Earnings</p>
-            <div className="flex items-baseline gap-2">
-              <span className="text-4xl font-black">₹{totalEarnings}</span>
-              <span className="text-green-100">total earned</span>
+          <div>
+            <p className="text-green-200 text-xs font-semibold mb-1">Total Earnings</p>
+            <p className="text-4xl font-black mb-1">₹{totalEarnings}</p>
+            <p className="text-green-200 text-xs">from {totalCount} referral{totalCount !== 1 ? 's' : ''}</p>
+          </div>
+
+          <div className="space-y-3 mt-6">
+            <div className="bg-white/20 rounded-xl p-3">
+              <p className="text-green-100 text-xs mb-0.5">Current Tier</p>
+              <p className="font-bold">{currentTier.badge} {currentTier.name}</p>
+            </div>
+            <div className="bg-white/20 rounded-xl p-3">
+              <p className="text-green-100 text-xs mb-0.5">Bonus per Referral</p>
+              <p className="font-bold text-lg">₹{currentTier.bonusPerReferral}</p>
             </div>
           </div>
 
-          <div className="space-y-4">
-            <div className="bg-white/20 rounded-xl p-4">
-              <p className="text-green-100 text-xs mb-1">Referrals</p>
-              <p className="text-2xl font-bold">{currentReferrals}</p>
-            </div>
-            <div className="bg-white/20 rounded-xl p-4">
-              <p className="text-green-100 text-xs mb-1">Current Tier</p>
-              <p className="text-2xl font-bold">{currentTier.badge} {currentTier.name}</p>
-            </div>
-            <div className="bg-white/20 rounded-xl p-4">
-              <p className="text-green-100 text-xs mb-1">Bonus per Referral</p>
-              <p className="text-2xl font-bold">₹{currentTier.bonusPerReferral}</p>
-            </div>
-          </div>
-
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="w-full mt-6 px-4 py-3 bg-white text-agri-green-600 font-bold rounded-xl hover:bg-green-50 transition-colors flex items-center justify-center gap-2"
-          >
-            <TrendingUp size={18} />
+          <button className="mt-4 w-full flex items-center justify-center gap-2 bg-white text-green-700 font-bold rounded-xl py-2.5 hover:bg-green-50 transition text-sm">
+            <TrendingUp size={16} />
             Withdraw Earnings
-          </motion.button>
+          </button>
         </motion.div>
       </div>
 
-      {/* Progress to Next Tier */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
-        className="bg-white rounded-2xl p-8 border border-agri-earth-200 shadow-lg mb-12"
-      >
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="font-bold text-agri-earth-900">Progress to {nextTier.badge} {nextTier.name}</h3>
-            <span className="text-sm font-bold text-agri-green-600">{currentReferrals}/{nextTier.referralsNeeded}</span>
+      {/* Progress to next tier */}
+      {nextTier && (
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm"
+        >
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="font-bold text-gray-900">Progress to {nextTier.badge} {nextTier.name}</h3>
+            <span className="text-sm font-bold text-green-600">{totalCount} / {nextTier.referralsNeeded}</span>
           </div>
-
-          {/* Progress Bar */}
-          <div className="w-full bg-agri-earth-200 rounded-full h-3 overflow-hidden">
+          <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden mb-5">
             <motion.div
               initial={{ width: 0 }}
-              animate={{ width: `${progressToNextTier}%` }}
-              transition={{ duration: 1, ease: 'easeOut' }}
-              className="h-full bg-gradient-to-r from-agri-green-500 to-agri-green-600"
+              animate={{ width: `${progressPct}%` }}
+              transition={{ duration: 0.8, ease: 'easeOut' }}
+              className="h-full bg-gradient-to-r from-green-500 to-green-600 rounded-full"
             />
           </div>
-        </div>
-
-        {/* Tier Benefits */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="p-4 bg-agri-green-50 rounded-xl border border-agri-green-200">
-            <p className="text-xs font-semibold text-agri-earth-600 mb-2">Referrals Needed</p>
-            <p className="text-2xl font-bold text-agri-green-700">
-              {Math.max(0, nextTier.referralsNeeded - currentReferrals)}
-            </p>
-            <p className="text-xs text-agri-earth-500 mt-1">more to reach next tier</p>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="p-3 bg-green-50 rounded-xl border border-green-100 text-center">
+              <p className="text-xs text-gray-500 mb-1">Referrals needed</p>
+              <p className="text-xl font-bold text-green-700">{Math.max(0, nextTier.referralsNeeded - totalCount)}</p>
+            </div>
+            <div className="p-3 bg-amber-50 rounded-xl border border-amber-100 text-center">
+              <p className="text-xs text-gray-500 mb-1">New bonus/referral</p>
+              <p className="text-xl font-bold text-amber-700">₹{nextTier.bonusPerReferral}</p>
+            </div>
+            <div className="p-3 bg-purple-50 rounded-xl border border-purple-100 text-center">
+              <p className="text-xs text-gray-500 mb-1">Bonus increase</p>
+              <p className="text-xl font-bold text-purple-700">+₹{nextTier.bonusPerReferral - currentTier.bonusPerReferral}</p>
+            </div>
           </div>
+        </motion.div>
+      )}
 
-          <div className="p-4 bg-amber-50 rounded-xl border border-amber-200">
-            <p className="text-xs font-semibold text-agri-earth-600 mb-2">Bonus per Referral</p>
-            <p className="text-2xl font-bold text-amber-700">₹{nextTier.bonusPerReferral}</p>
-            <p className="text-xs text-agri-earth-500 mt-1">up from ₹{currentTier.bonusPerReferral}</p>
-          </div>
-
-          <div className="p-4 bg-purple-50 rounded-xl border border-purple-200">
-            <p className="text-xs font-semibold text-agri-earth-600 mb-2">Tier Bonus</p>
-            <p className="text-2xl font-bold text-purple-700">₹{nextTier.totalReward - currentTier.totalReward}</p>
-            <p className="text-xs text-agri-earth-500 mt-1">one-time achievement bonus</p>
-          </div>
-        </div>
-      </motion.div>
-
-      {/* Tier Progression */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.4 }}
-        className="mb-12"
-      >
-        <h3 className="text-xl font-bold text-agri-earth-900 mb-6">Referral Tiers</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {REFERRAL_TIERS.map((tier, idx) => {
-            const tierClass = tier.unlocked
-              ? `bg-gradient-to-br ${tier.color} text-white border-transparent shadow-lg select-none` 
-              : 'bg-gray-50 border-gray-200 text-gray-600 opacity-80';
-
+      {/* Tier progression */}
+      <div>
+        <h3 className="text-base font-bold text-gray-800 mb-4">Referral Tiers</h3>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {TIERS.map((tier, idx) => {
+            const unlocked = totalCount >= tier.referralsNeeded;
             return (
               <motion.div
                 key={tier.level}
-                initial={{ opacity: 0, y: 10 }}
+                initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.4 + idx * 0.05 }}
-                className={`rounded-2xl p-6 border-2 transition-all transform ${tierClass} hover:-translate-y-1 hover:shadow-xl cursor-pointer min-h-[210px]`}
+                transition={{ delay: idx * 0.05 }}
+                className={`rounded-2xl p-5 border-2 transition-all ${
+                  unlocked
+                    ? `bg-gradient-to-br ${tier.color} text-white border-transparent shadow-md`
+                    : 'bg-gray-50 border-gray-200 text-gray-500 opacity-75'
+                }`}
               >
-                <div className="flex items-start justify-between mb-4">
-                <div>
-                  <p className="text-3xl mb-1">{tier.badge}</p>
-                  <h4 className="font-bold text-lg">{tier.name}</h4>
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <p className="text-2xl mb-0.5">{tier.badge}</p>
+                    <p className="font-bold">{tier.name}</p>
+                  </div>
+                  {unlocked ? <Unlock size={16} /> : <Lock size={16} />}
                 </div>
-                {tier.unlocked ? (
-                  <Unlock size={20} />
-                ) : (
-                  <Lock size={20} />
+                <div className="space-y-1 text-sm">
+                  <p>Referrals: <span className="font-bold">{tier.referralsNeeded}+</span></p>
+                  <p>Bonus: <span className="font-bold">₹{tier.bonusPerReferral}</span></p>
+                </div>
+                {unlocked && (
+                  <div className="mt-3 inline-block px-2 py-0.5 bg-white/25 rounded-full text-xs font-bold">✓ Unlocked</div>
                 )}
-              </div>
-
-              <div className="space-y-2 text-sm">
-                <p>Referrals: <span className="font-bold">{tier.referralsNeeded}+</span></p>
-                <p>Bonus: <span className="font-bold">₹{tier.bonusPerReferral}</span></p>
-                <p>Tier Reward: <span className="font-bold">₹{tier.totalReward}</span></p>
-              </div>
-
-              {tier.unlocked && (
-                <motion.div
-                  animate={{ scale: [1, 1.1, 1] }}
-                  transition={{ duration: 2, repeat: Infinity }}
-                  className="mt-4 inline-block px-3 py-1 bg-white/20 rounded-full text-xs font-bold"
-                >
-                  ✓ Unlocked
-                </motion.div>
-              )}
-            </motion.div>
-          );
+              </motion.div>
+            );
           })}
         </div>
-      </motion.div>
+      </div>
 
-      {/* Recent Referrals */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5 }}
-        className="bg-white rounded-2xl p-8 border border-agri-earth-200 shadow-lg"
-      >
-        <div className="flex items-center gap-3 mb-6">
-          <Users className="text-agri-green-600" size={24} />
-          <h3 className="text-xl font-bold text-agri-earth-900">Recent Referrals</h3>
+      {/* Recent referrals */}
+      <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm">
+        <div className="flex items-center gap-2 mb-5">
+          <Users className="text-green-600" size={20} />
+          <h3 className="font-bold text-gray-900">Your Referrals ({totalCount})</h3>
         </div>
 
-        <div className="space-y-4">
-          {SAMPLE_REFERRALS.map((referral, idx) => (
-            <motion.div
-              key={idx}
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.5 + idx * 0.1 }}
-              className="flex items-center justify-between p-4 bg-agri-earth-50 rounded-xl border border-agri-earth-200 hover:border-agri-green-300 transition-colors"
-            >
-              <div className="flex-1">
-                <p className="font-semibold text-agri-earth-900">{referral.name}</p>
-                <p className="text-xs text-agri-earth-600">{referral.date}</p>
-              </div>
+        {referrals.length === 0 ? (
+          <div className="text-center py-10">
+            <p className="text-4xl mb-3">🌱</p>
+            <p className="font-semibold text-gray-700 mb-1">No referrals yet</p>
+            <p className="text-sm text-gray-400">Share your link above to start earning rewards!</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {referrals.map((r, idx) => (
+              <motion.div
+                key={r.id}
+                initial={{ opacity: 0, x: -8 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: idx * 0.05 }}
+                className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-200 hover:border-green-200 transition"
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-gray-900 truncate">
+                    {r.referred_name ?? r.referred_phone ?? 'Anonymous'}
+                  </p>
+                  <p className="text-xs text-gray-400">{formatDate(r.created_at)}</p>
+                </div>
+                <div className="text-right ml-3">
+                  <p className="text-xs font-semibold text-gray-600 mb-0.5">
+                    {r.status === 'completed' ? '✅ Sale Completed' : '📝 Signed Up'}
+                  </p>
+                  <p className={`text-base font-black ${r.bonus_amount > 0 ? 'text-green-600' : 'text-gray-400'}`}>
+                    {r.bonus_amount > 0 ? `+₹${r.bonus_amount}` : 'Pending'}
+                  </p>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        )}
+      </div>
 
-              <div className="text-right">
-                <div className="text-sm font-bold text-agri-earth-900">
-                  {referral.status === 'completed_sale' && '✅ Sale Completed'}
-                  {referral.status === 'signed_up' && '📝 Signed Up'}
-                  {referral.status === 'referred' && '👤 Invited'}
-                </div>
-                <div className={`text-lg font-black ${
-                  referral.referralBonus > 0 ? 'text-agri-green-600' : 'text-agri-earth-500'
-                }`}>
-                  {referral.referralBonus > 0 ? `+₹${referral.referralBonus}` : 'Pending'}
-                </div>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      </motion.div>
     </div>
   );
 };

@@ -139,6 +139,18 @@ export type AdminUser = {
   created_at: string;
 };
 
+export type Referral = {
+  id: string;
+  referrer_id: string;
+  referred_user_id: string | null;
+  referred_phone: string | null;
+  referred_name: string | null;
+  status: 'signed_up' | 'completed';
+  bonus_amount: number;
+  created_at: string;
+  updated_at: string;
+};
+
 // ─── Helper ──────────────────────────────────────────────────────────────────
 
 function requireSupabaseConfig() {
@@ -239,7 +251,8 @@ export async function upsertProfile(updates: Partial<Profile> & { id: string }):
  */
 export async function getMyProfile(): Promise<Profile | null> {
   requireSupabaseConfig();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { session } } = await supabase.auth.getSession();
+  const user = session?.user;
   if (!user) return null;
   const { data, error } = await supabase
     .from('profiles')
@@ -281,7 +294,8 @@ export async function saveBuybackSubmission(submission: Omit<BuybackSubmission, 
  */
 export async function getMySubmissions(): Promise<BuybackSubmission[]> {
   requireSupabaseConfig();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { session } } = await supabase.auth.getSession();
+  const user = session?.user;
   if (!user) return [];
 
   // Get the user's phone to claim any anonymous submissions
@@ -337,7 +351,8 @@ export async function saveBankDetails(details: Omit<BankAccount, 'id' | 'created
  */
 export async function getMyBankDetails(): Promise<BankAccount | null> {
   requireSupabaseConfig();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { session } } = await supabase.auth.getSession();
+  const user = session?.user;
   if (!user) return null;
   const { data, error } = await supabase
     .from('bank_accounts')
@@ -353,7 +368,8 @@ export async function getMyBankDetails(): Promise<BankAccount | null> {
 
 export async function getMyPaymentScreenshots(): Promise<PaymentScreenshot[]> {
   requireSupabaseConfig();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { session } } = await supabase.auth.getSession();
+  const user = session?.user;
   if (!user) return [];
 
   const { data, error } = await supabase
@@ -464,7 +480,8 @@ export async function saveUserFormDetails(
  */
 export async function getMyFormDetails(): Promise<UserFormDetails | null> {
   requireSupabaseConfig();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { session } } = await supabase.auth.getSession();
+  const user = session?.user;
   if (!user) return null;
   const { data, error } = await supabase
     .from('user_form_details')
@@ -565,6 +582,83 @@ export async function adminUploadPaymentScreenshot({
   }
 
   return data as PaymentScreenshot;
+}
+
+// ─── Referrals API ───────────────────────────────────────────────────────────
+
+export async function getMyReferralCode(): Promise<string | null> {
+  requireSupabaseConfig();
+  const { data: { session } } = await supabase.auth.getSession();
+  const user = session?.user;
+  if (!user) return null;
+  const { data } = await supabase
+    .from('profiles')
+    .select('referral_code')
+    .eq('id', user.id)
+    .maybeSingle();
+  return (data as { referral_code: string | null } | null)?.referral_code ?? null;
+}
+
+export async function getMyReferrals(): Promise<Referral[]> {
+  requireSupabaseConfig();
+  const { data: { session } } = await supabase.auth.getSession();
+  const user = session?.user;
+  if (!user) return [];
+  const { data, error } = await supabase
+    .from('referrals')
+    .select('*')
+    .eq('referrer_id', user.id)
+    .order('created_at', { ascending: false });
+  if (error) {
+    logSupabaseFailure('getMyReferrals failed', { error: error.message });
+    return [];
+  }
+  return (data ?? []) as Referral[];
+}
+
+export async function recordReferral({
+  referralCode,
+  referredUserId,
+  referredPhone,
+  referredName,
+}: {
+  referralCode: string;
+  referredUserId: string;
+  referredPhone?: string;
+  referredName?: string;
+}): Promise<void> {
+  if (!isSupabaseConfigured) return;
+  const { data: referrer } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('referral_code', referralCode.trim().toUpperCase())
+    .maybeSingle();
+
+  if (!referrer || referrer.id === referredUserId) return;
+
+  const { data: existing } = await supabase
+    .from('referrals')
+    .select('id')
+    .eq('referrer_id', referrer.id)
+    .eq('referred_user_id', referredUserId)
+    .maybeSingle();
+
+  if (existing) return;
+
+  await supabase.from('referrals').insert({
+    referrer_id: referrer.id,
+    referred_user_id: referredUserId,
+    referred_phone: referredPhone ?? null,
+    referred_name: referredName ?? null,
+    status: 'signed_up',
+    bonus_amount: 100,
+  });
+
+  await supabase
+    .from('profiles')
+    .update({ referred_by: referralCode })
+    .eq('id', referredUserId)
+    .is('referred_by', null);
 }
 
 // ─── Legacy API (kept for backward compat) ───────────────────────────────────

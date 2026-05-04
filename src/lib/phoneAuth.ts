@@ -1,5 +1,5 @@
 import type { User } from '@supabase/supabase-js';
-import { supabase } from './supabase';
+import { supabase, recordReferral } from './supabase';
 
 const INDIAN_PHONE_PATTERN = /^[6-9]\d{9}$/;
 
@@ -129,7 +129,18 @@ export async function getOrCreateProfile(user: User) {
     .select('*')
     .single();
 
-  if (!createError && created) return created;
+  if (!createError && created) {
+    const pendingRef = localStorage.getItem('igo_pending_ref');
+    if (pendingRef) {
+      void recordReferral({
+        referralCode: pendingRef,
+        referredUserId: user.id,
+        referredPhone: phone ?? undefined,
+        referredName: fullName ?? undefined,
+      }).then(() => localStorage.removeItem('igo_pending_ref'));
+    }
+    return created;
+  }
 
   if (createError?.code === '23505') {
     const { data: raced } = await supabase.from('profiles').select('*').eq('id', user.id).single();

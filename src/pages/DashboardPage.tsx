@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   LogOut,
@@ -13,8 +13,6 @@ import {
   ChevronUp,
   RefreshCw,
   PlusCircle,
-  CheckCircle2,
-  AlertCircle,
   Download,
   Gift,
 } from 'lucide-react';
@@ -36,6 +34,15 @@ import {
 import { toast } from 'sonner';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function withTimeout<T>(promise: Promise<T>, ms = 6000): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error('Request timed out. Check your connection.')), ms)
+    ),
+  ]);
+}
 
 function fmt(v: string | null | undefined) {
   if (!v) return '—';
@@ -199,7 +206,7 @@ function MyDetailsSection({ userId, profileName, phone: authPhone }: { userId: s
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await getMyFormDetails();
+      const data = await withTimeout(getMyFormDetails());
       setSaved(data);
       setForm(fromDetails(data, profileName));
       setEditablePhone(phone ?? data?.phone ?? '');
@@ -417,7 +424,7 @@ function BankDetailsSection({ userId }: { userId: string }) {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await getMyBankDetails();
+      const data = await withTimeout(getMyBankDetails());
       setSaved(data);
       setForm(fromBank(data));
       setEditing(!data);
@@ -566,7 +573,7 @@ function PaymentProofsSection() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await getMyPaymentScreenshots();
+      const data = await withTimeout(getMyPaymentScreenshots());
       setProofs(data);
     } catch (err) {
       console.error('[Dashboard] Failed to load payment proofs:', err);
@@ -648,7 +655,7 @@ function SubmissionsSection() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await getMySubmissions();
+      const data = await withTimeout(getMySubmissions());
       setSubmissions(data);
     } catch (err) {
       console.error('[Dashboard] Failed to load submissions:', err);
@@ -696,7 +703,7 @@ function SubmissionsSection() {
       ) : (
         <div className="space-y-2">
           {submissions.map((sub) => {
-            const st = STATUS_STYLE[sub.status ?? 'pending'];
+            const st = STATUS_STYLE[sub.status ?? 'pending'] ?? STATUS_STYLE['pending']!;
             const isOpen = expanded === sub.id;
             return (
               <div key={sub.id} className="rounded-xl border border-gray-100 overflow-hidden">
@@ -758,23 +765,6 @@ export const DashboardPage = () => {
   const { user, profile, loading, logout } = useAuth();
   const [loggingOut, setLoggingOut] = useState(false);
   const [activeTab, setActiveTab] = useState<DashTab>('profile');
-  const [copiedReferral, setCopiedReferral] = useState(false);
-
-  const referralCode = useMemo(() => {
-    if (!user) return 'IGO-REFERRAL';
-    const source = profile?.full_name?.trim() || user.phone || user.email || user.id;
-    const cleaned = source.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 12);
-    return `IGO-${cleaned || user.id.slice(0, 8).toUpperCase()}`;
-  }, [profile, user]);
-
-  const referralLink = `https://igofarmgate.com/join?ref=${encodeURIComponent(referralCode)}`;
-
-  const handleCopyReferral = () => {
-    if (!user) return;
-    navigator.clipboard.writeText(referralLink);
-    setCopiedReferral(true);
-    setTimeout(() => setCopiedReferral(false), 2000);
-  };
 
   const handleLogout = async () => {
     setLoggingOut(true);
@@ -870,20 +860,7 @@ export const DashboardPage = () => {
 
         {/* Referrals Tab */}
         {activeTab === 'referrals' && (
-          <div className="space-y-5">
-            {/* Quick referral link */}
-            <section className="rounded-2xl bg-white border border-gray-100 shadow-sm p-5">
-              <p className="text-xs uppercase tracking-widest text-green-700 font-semibold mb-1">Your Referral Link</p>
-              <div className="flex items-center gap-3 mt-3">
-                <div className="flex-1 rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm font-mono text-green-700 break-all">{referralLink}</div>
-                <button
-                  onClick={handleCopyReferral}
-                  className="shrink-0 rounded-xl bg-green-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-green-800 transition"
-                >
-                  {copiedReferral ? 'Copied!' : 'Copy'}
-                </button>
-              </div>
-            </section>
+          <div className="py-2">
             <ReferralProgram />
           </div>
         )}

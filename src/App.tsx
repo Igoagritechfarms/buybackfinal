@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import { I18nProvider } from './lib/i18n';
@@ -46,6 +46,14 @@ const AppRoutes = () => {
   const location = useLocation();
   const isAdminRoute = location.pathname.startsWith('/admin');
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get('ref');
+    if (ref && ref.toUpperCase().startsWith('IGO-')) {
+      localStorage.setItem('igo_pending_ref', ref.toUpperCase());
+    }
+  }, []);
+
   return (
     <>
       <ScrollToTop />
@@ -62,6 +70,7 @@ const AppRoutes = () => {
             <Route path="/enroll" element={<PageWrapper><Enroll /></PageWrapper>} />
             <Route path="/contact" element={<PageWrapper><Contact /></PageWrapper>} />
             <Route path="/referrals" element={<PageWrapper><Referrals /></PageWrapper>} />
+            <Route path="/join" element={<Navigate to="/signup" replace />} />
             <Route path="/settings" element={<PageWrapper><Settings /></PageWrapper>} />
 
             {/* Farmer Dashboard */}
