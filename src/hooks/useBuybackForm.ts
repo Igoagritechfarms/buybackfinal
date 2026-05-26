@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { sellerSchema, buyerSchema, SellerFormData, BuyerFormData } from '../lib/validation';
 import { useFormHandler } from './useFormHandler';
-import { supabase, saveBuybackSubmission, upsertProfile } from '../lib/supabase';
+import { upsertProfile } from '../lib/supabase';
 import { useNotification } from './useNotification';
 import { useAuth } from '../contexts/AuthContext';
 import {
@@ -29,7 +29,12 @@ function logOtpFailure(context: string, details: Record<string, unknown>) {
 
 export function useBuybackForm(type: 'sell' | 'buy') {
   const navigate = useNavigate();
-  const { user, profile } = useAuth();
+  const { user, profile, refreshProfile } = useAuth();
+
+  // Only trust user.id when the profile was successfully loaded for this user.
+  // A stale JWT has a user.id that no longer exists in auth.users — sending it
+  // causes a FK constraint violation on buyback_submissions.
+  const verifiedUserId = profile?.id === user?.id ? user?.id ?? null : null;
 
   const [otpSent, setOtpSent] = useState(false);
   const [otpCountdown, setOtpCountdown] = useState(0);
@@ -86,37 +91,46 @@ export function useBuybackForm(type: 'sell' | 'buy') {
       if (submitInFlightRef.current) return;
 
       const fullPhone = buildE164Phone(data.countryCode, data.phone);
-      const verifiedForThisPhone =
-        hasVerifiedAccountPhone || (otpVerified && otpTargetPhone === fullPhone);
 
-      if (!verifiedForThisPhone || !fullPhone) {
-        throw new Error('Please verify your phone number with OTP before continuing.');
+      if (!fullPhone) {
+        throw new Error('Please enter a valid 10-digit mobile number.');
       }
 
       const selectedProduct = PRODUCTS.find((p) => p.id === data.product);
 
       submitInFlightRef.current = true;
       try {
+        const submitPayload = {
+          contact_name: data.name,
+          contact_phone: fullPhone,
+          product_id: data.product,
+          product_name: selectedProduct?.name ?? data.product,
+          quantity: data.quantity,
+          quantity_unit: data.quantityUnit ?? 'kg',
+          expected_price: data.price > 0 ? data.price : null,
+          harvest_date:
+            type === 'sell' && 'harvestDate' in data && data.harvestDate
+              ? data.harvestDate
+              : type === 'buy' && 'deliveryDate' in data && data.deliveryDate
+              ? data.deliveryDate
+              : null,
+          location: data.location,
+          site_visit_date: data.siteVisitDate || null,
+          schedule_notes: data.scheduleNotes || null,
+          submission_type: type,
+          form_payload: data as unknown as Record<string, unknown>,
+          user_id: verifiedUserId,
+        };
+
         await promise(
-          saveBuybackSubmission({
-            contact_name: data.name,
-            contact_phone: fullPhone,
-            product_id: data.product,
-            product_name: selectedProduct?.name ?? data.product,
-            quantity: data.quantity,
-            quantity_unit: data.quantityUnit ?? 'kg',
-            expected_price: data.price > 0 ? data.price : null,
-            harvest_date:
-              type === 'sell' && 'harvestDate' in data && data.harvestDate
-                ? data.harvestDate
-                : type === 'buy' && 'deliveryDate' in data && data.deliveryDate
-                ? data.deliveryDate
-                : null,
-            location: data.location,
-            site_visit_date: data.siteVisitDate || null,
-            schedule_notes: data.scheduleNotes || null,
-            submission_type: type,
-            form_payload: data as unknown as Record<string, unknown>,
+          fetch('/api/submit-form', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(submitPayload),
+          }).then(async (res) => {
+            const json = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error((json as { message?: string }).message || 'Submission failed.');
+            return json;
           }),
           {
             loading: 'Submitting your request...',
@@ -125,26 +139,27 @@ export function useBuybackForm(type: 'sell' | 'buy') {
           }
         );
 
-        // After successful submission, update profile with name+phone and navigate to dashboard
-        const { data: { user: sessionUser } } = await supabase.auth.getUser();
-        if (sessionUser) {
+        // Store phone so dashboard can find this submission even if profile update fails
+        sessionStorage.setItem('igo_last_phone', fullPhone);
+
+        if (user) {
           try {
             await upsertProfile({
-              id: sessionUser.id,
+              id: user.id,
               full_name: data.name,
               phone: fullPhone,
             });
+            await refreshProfile();
           } catch (profileErr) {
             console.error('[Form] Profile save failed:', profileErr);
           }
           navigate('/dashboard');
         }
-        // If no session (anonymous submit), still return successfully so form shows success state
       } finally {
         submitInFlightRef.current = false;
       }
     },
-    [otpTargetPhone, otpVerified, promise, type, isLoggedIn, hasVerifiedAccountPhone, navigate]
+    [promise, type, isLoggedIn, hasVerifiedAccountPhone, navigate, refreshProfile, verifiedUserId]
   );
 
   const form = useFormHandler(initialData, schema, handleSubmitForm);

@@ -63,7 +63,8 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       toast.promise(promise, {
         loading: messages.loading,
         success: messages.success,
-        error: messages.error,
+        error: (err: unknown) =>
+          err instanceof Error && err.message ? err.message : messages.error,
       }),
     dismiss: (toastId) => toast.dismiss(toastId),
   };

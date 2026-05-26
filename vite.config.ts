@@ -27,6 +27,7 @@ export default defineConfig(({ mode }) => {
   }
 
   return {
+    base: '/',
     plugins: [otpApiPlugin(), react(), tailwindcss()],
     define: {
       'process.env.VITE_GEMINI_API_KEY': JSON.stringify(env['VITE_GEMINI_API_KEY']),

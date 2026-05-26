@@ -207,6 +207,73 @@ router.post('/signup', async (req, res) => {
   }
 });
 
+// ─── POST /api/signup-direct ─────────────────────────────────────────────────
+// Creates an account with name + phone + password — no OTP required.
+
+router.post('/signup-direct', async (req, res) => {
+  try {
+    const phone = parseIndianPhone(req.body?.phone);
+    const password = String(req.body?.password || '');
+    const name = String(req.body?.name || '').trim();
+    const username = String(req.body?.username || '').trim();
+
+    if (!phone || !name) {
+      return res.status(400).json({
+        error: 'MISSING_FIELDS',
+        message: 'Name and phone number are required.',
+      });
+    }
+    if (!password || password.length < 6) {
+      return res.status(400).json({
+        error: 'WEAK_PASSWORD',
+        message: 'Password must be at least 6 characters.',
+      });
+    }
+
+    // Reject if phone already registered
+    const existing = await findUserByPhone(phone);
+    if (existing) {
+      return res.status(409).json({
+        error: 'PHONE_EXISTS',
+        message: 'This phone number is already registered. Please log in instead.',
+      });
+    }
+
+    const credentials = await getOrCreateUserByPhone(phone, password, name);
+
+    // Store username in user_metadata if provided
+    if (username && credentials.userId) {
+      const admin = createSupabaseAdminClient();
+      if (admin) {
+        await admin.auth.admin.updateUserById(credentials.userId, {
+          user_metadata: { username, full_name: name },
+        });
+      }
+    }
+
+    return res.json({
+      success: true,
+      message: 'Account created successfully.',
+      email: credentials.email,
+      password: credentials.password,
+      userId: credentials.userId,
+      isNew: credentials.isNew,
+    });
+  } catch (err) {
+    console.error('[signup-direct] Error:', err.message);
+    if (
+      err.message?.toLowerCase().includes('already') ||
+      err.message?.toLowerCase().includes('duplicate')
+    ) {
+      return res.status(409).json({
+        error: 'PHONE_EXISTS',
+        message: 'This phone number is already registered. Please log in instead.',
+      });
+    }
+    return res.status(500).json({ error: 'SIGNUP_FAILED', message: err.message });
+  }
+});
+
 // ─── POST /api/login ─────────────────────────────────────────────────────────
 
 router.post('/login', async (req, res) => {
@@ -302,6 +369,85 @@ router.post('/supabase-credentials', async (req, res) => {
   } catch (err) {
     console.error('[supabase-credentials] Error:', err.message);
     return res.status(500).json({ error: 'CREDENTIALS_FAILED', message: err.message });
+  }
+});
+
+// ─── POST /api/submit-form ────────────────────────────────────────────────────
+// Saves a buyback/sell submission using admin client — bypasses RLS.
+
+router.post('/submit-form', async (req, res) => {
+  try {
+    const admin = createSupabaseAdminClient();
+    if (!admin) {
+      return res.status(500).json({ error: 'SERVER_ERROR', message: 'Server not configured.' });
+    }
+
+    const {
+      contact_name,
+      contact_phone,
+      product_id,
+      product_name,
+      quantity,
+      quantity_unit,
+      expected_price,
+      harvest_date,
+      location,
+      site_visit_date,
+      schedule_notes,
+      submission_type,
+      form_payload,
+      user_id,
+    } = req.body;
+
+    if (!contact_name || !contact_phone || !product_id || !location || !submission_type) {
+      return res.status(400).json({ error: 'MISSING_FIELDS', message: 'Required fields are missing.' });
+    }
+
+    if (!['sell', 'buy'].includes(submission_type)) {
+      return res.status(400).json({ error: 'INVALID_TYPE', message: 'submission_type must be sell or buy.' });
+    }
+
+    // Verify user_id exists in auth.users before linking — prevents FK violation
+    // when the client has a stale/partial session that was never fully created.
+    let validatedUserId = null;
+    if (user_id) {
+      try {
+        const { data: authUser, error: authErr } = await admin.auth.admin.getUserById(user_id);
+        if (!authErr && authUser?.user) {
+          validatedUserId = user_id;
+        }
+      } catch {
+        // If lookup fails, submit anonymously
+      }
+    }
+
+    const { data, error } = await admin
+      .from('buyback_submissions')
+      .insert([{
+        contact_name,
+        contact_phone,
+        product_id,
+        product_name: product_name || product_id,
+        quantity: Number(quantity) || 0,
+        quantity_unit: quantity_unit || 'kg',
+        expected_price: expected_price ? Number(expected_price) : null,
+        harvest_date: harvest_date || null,
+        location,
+        site_visit_date: site_visit_date || null,
+        schedule_notes: schedule_notes || null,
+        submission_type,
+        status: 'pending',
+        form_payload: form_payload || {},
+        user_id: validatedUserId,
+      }])
+      .select()
+      .single();
+
+    if (error) throw new Error(error.message);
+    return res.json({ success: true, data });
+  } catch (err) {
+    console.error('[submit-form] Error:', err.message);
+    return res.status(500).json({ error: 'SUBMIT_FAILED', message: err.message });
   }
 });
 

@@ -26,6 +26,7 @@ import {
   getMySubmissions,
   getMyPaymentScreenshots,
   getPaymentScreenshotDownloadUrl,
+  upsertProfile,
   UserFormDetails,
   BankAccount,
   BuybackSubmission,
@@ -231,24 +232,27 @@ function MyDetailsSection({ userId, profileName, phone: authPhone }: { userId: s
     if (!form.full_name.trim()) { toast.error('Full name is required'); return; }
     setSaving(true);
     try {
-      const result = await saveUserFormDetails({
-        user_id: userId,
-        full_name: form.full_name.trim(),
-        phone: editablePhone.trim() || phone || undefined,
-        address: form.address.trim() || undefined,
-        city: form.city.trim() || undefined,
-        state: form.state.trim() || undefined,
-        pincode: form.pincode.trim() || undefined,
-        crop_type: form.crop_type.trim() || undefined,
-        acreage: form.acreage ? Number(form.acreage) : undefined,
-        farming_method: form.farming_method || undefined,
-        notes: form.notes.trim() || undefined,
-      });
+      const [result] = await Promise.all([
+        saveUserFormDetails({
+          user_id: userId,
+          full_name: form.full_name.trim(),
+          phone: editablePhone.trim() || phone || undefined,
+          address: form.address.trim() || undefined,
+          city: form.city.trim() || undefined,
+          state: form.state.trim() || undefined,
+          pincode: form.pincode.trim() || undefined,
+          crop_type: form.crop_type.trim() || undefined,
+          acreage: form.acreage ? Number(form.acreage) : undefined,
+          farming_method: form.farming_method || undefined,
+          notes: form.notes.trim() || undefined,
+        }),
+        upsertProfile({ id: userId, full_name: form.full_name.trim() }).catch(() => null),
+      ]);
       setSaved(result);
       setEditing(false);
       toast.success('Details saved successfully');
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Save failed');
+      toast.error((err as { message?: string })?.message ?? String(err) ?? 'Save failed');
     } finally {
       setSaving(false);
     }
@@ -464,7 +468,7 @@ function BankDetailsSection({ userId }: { userId: string }) {
       setEditing(false);
       toast.success('Bank details saved');
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Save failed');
+      toast.error((err as { message?: string })?.message ?? String(err) ?? 'Save failed');
     } finally {
       setSaving(false);
     }

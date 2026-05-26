@@ -125,7 +125,7 @@ export async function getOrCreateProfile(user: User) {
 
   const { data: created, error: createError } = await supabase
     .from('profiles')
-    .insert({ id: user.id, phone, email: user.email ?? null, full_name: fullName })
+    .insert({ id: user.id, phone, email: user.email ?? null, full_name: fullName, role: 'user' })
     .select('*')
     .single();
 

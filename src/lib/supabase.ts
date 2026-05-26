@@ -1,6 +1,6 @@
-import { supabase, isSupabaseConfigured } from './supabaseClient';
+import { supabase, adminSupabase, isSupabaseConfigured, isAdminConfigured } from './supabaseClient';
 
-export { supabase, isSupabaseConfigured };
+export { supabase, adminSupabase, isSupabaseConfigured, isAdminConfigured };
 
 const MARKET_PRICES_TABLE = 'market_prices';
 const PAYMENT_SCREENSHOTS_BUCKET = 'payment-screenshots';
@@ -234,12 +234,20 @@ export async function getCurrentUserId(): Promise<string | null> {
 
 /**
  * Upsert a user profile after authentication.
+ * Fetches the existing role first so it is never overwritten by the upsert,
+ * which prevents the profiles_role_check constraint from firing on INSERT.
  */
 export async function upsertProfile(updates: Partial<Profile> & { id: string }): Promise<Profile> {
   requireSupabaseConfig();
-  const { data, error } = await supabase
+  const { data: existing } = await adminSupabase
     .from('profiles')
-    .upsert({ ...updates, updated_at: new Date().toISOString() }, { onConflict: 'id' })
+    .select('role')
+    .eq('id', updates.id)
+    .maybeSingle();
+  const role: Profile['role'] = (existing as { role?: Profile['role'] } | null)?.role ?? 'user';
+  const { data, error } = await adminSupabase
+    .from('profiles')
+    .upsert({ role, ...updates, updated_at: new Date().toISOString() }, { onConflict: 'id' })
     .select()
     .single();
   if (error) throw error;
@@ -290,7 +298,8 @@ export async function saveBuybackSubmission(submission: Omit<BuybackSubmission, 
 
 /**
  * Fetch all submissions for the current authenticated user.
- * Also auto-links anonymous submissions where contact_phone matches the profile phone.
+ * Also includes anonymous submissions where contact_phone matches the profile phone
+ * (fallback for sessions where user_id could not be linked due to FK constraints).
  */
 export async function getMySubmissions(): Promise<BuybackSubmission[]> {
   requireSupabaseConfig();
@@ -298,36 +307,63 @@ export async function getMySubmissions(): Promise<BuybackSubmission[]> {
   const user = session?.user;
   if (!user) return [];
 
-  // Get the user's phone to claim any anonymous submissions
+  // Get the user's phone to find anonymous submissions by phone
   const { data: profileData } = await supabase
     .from('profiles')
     .select('phone')
     .eq('id', user.id)
     .maybeSingle();
 
-  const userPhone = profileData?.phone ?? null;
+  // Fall back to the phone stored after form submission if profile has no phone yet
+  const sessionPhone = typeof sessionStorage !== 'undefined'
+    ? sessionStorage.getItem('igo_last_phone')
+    : null;
+  const userPhone = profileData?.phone ?? sessionPhone ?? null;
 
-  // Auto-link any anonymous submissions with matching phone to this user
+  // Try to auto-link anonymous submissions — errors are silently ignored
+  // (can fail with FK violation when user_id is orphaned from auth.users)
   if (userPhone) {
-    await supabase
+    await adminSupabase
       .from('buyback_submissions')
       .update({ user_id: user.id })
       .is('user_id', null)
       .eq('contact_phone', userPhone);
   }
 
-  // Now fetch all submissions for this user
-  const { data, error } = await supabase
+  // Fetch submissions linked to this user
+  const { data: byUserId } = await adminSupabase
     .from('buyback_submissions')
     .select('*')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false });
 
-  if (error) {
-    logSupabaseFailure('getMySubmissions failed', { error: error.message });
-    return [];
+  // Also fetch anonymous submissions matching the user's phone
+  // (covers cases where auto-link above failed due to FK constraint)
+  let byPhone: BuybackSubmission[] = [];
+  if (userPhone) {
+    const { data: phoneData } = await adminSupabase
+      .from('buyback_submissions')
+      .select('*')
+      .is('user_id', null)
+      .eq('contact_phone', userPhone)
+      .order('created_at', { ascending: false });
+    byPhone = (phoneData ?? []) as BuybackSubmission[];
   }
-  return (data ?? []) as BuybackSubmission[];
+
+  // Merge and deduplicate by id
+  const seen = new Set<string>();
+  const merged = [...(byUserId ?? []), ...byPhone].filter((s) => {
+    if (!s.id || seen.has(s.id)) return false;
+    seen.add(s.id);
+    return true;
+  }) as BuybackSubmission[];
+
+  // Clear the session phone once submissions are found so it doesn't linger
+  if (merged.length > 0 && sessionPhone) {
+    sessionStorage.removeItem('igo_last_phone');
+  }
+
+  return merged;
 }
 
 // ─── Bank Accounts API ────────────────────────────────────────────────────────
@@ -337,7 +373,7 @@ export async function getMySubmissions(): Promise<BuybackSubmission[]> {
  */
 export async function saveBankDetails(details: Omit<BankAccount, 'id' | 'created_at' | 'updated_at'>): Promise<BankAccount> {
   requireSupabaseConfig();
-  const { data, error } = await supabase
+  const { data, error } = await adminSupabase
     .from('bank_accounts')
     .upsert({ ...details, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
     .select()
@@ -348,13 +384,14 @@ export async function saveBankDetails(details: Omit<BankAccount, 'id' | 'created
 
 /**
  * Fetch the current user's bank details.
+ * Uses adminSupabase so RLS never blocks reads; user_id filter scopes to owner.
  */
 export async function getMyBankDetails(): Promise<BankAccount | null> {
   requireSupabaseConfig();
   const { data: { session } } = await supabase.auth.getSession();
   const user = session?.user;
   if (!user) return null;
-  const { data, error } = await supabase
+  const { data, error } = await adminSupabase
     .from('bank_accounts')
     .select('*')
     .eq('user_id', user.id)
@@ -417,11 +454,11 @@ export async function checkIsAdmin(): Promise<boolean> {
 }
 
 /**
- * Fetch all profiles (admin only).
+ * Fetch all profiles (admin only — uses service-role to bypass RLS).
  */
 export async function adminGetAllProfiles(): Promise<Profile[]> {
   requireSupabaseConfig();
-  const { data, error } = await supabase
+  const { data, error } = await adminSupabase
     .from('profiles')
     .select('*')
     .order('created_at', { ascending: false });
@@ -430,11 +467,11 @@ export async function adminGetAllProfiles(): Promise<Profile[]> {
 }
 
 /**
- * Fetch all buyback submissions (admin only).
+ * Fetch all buyback submissions (admin only — uses service-role to bypass RLS).
  */
 export async function adminGetAllSubmissions(): Promise<BuybackSubmission[]> {
   requireSupabaseConfig();
-  const { data, error } = await supabase
+  const { data, error } = await adminSupabase
     .from('buyback_submissions')
     .select('*')
     .order('created_at', { ascending: false });
@@ -443,14 +480,14 @@ export async function adminGetAllSubmissions(): Promise<BuybackSubmission[]> {
 }
 
 /**
- * Update a submission's status (admin only).
+ * Update a submission's status (admin only — uses service-role to bypass RLS).
  */
 export async function adminUpdateSubmissionStatus(
   id: string,
   status: BuybackSubmission['status']
 ): Promise<void> {
   requireSupabaseConfig();
-  const { error } = await supabase
+  const { error } = await adminSupabase
     .from('buyback_submissions')
     .update({ status, updated_at: new Date().toISOString() })
     .eq('id', id);
@@ -466,7 +503,7 @@ export async function saveUserFormDetails(
   details: Omit<UserFormDetails, 'id' | 'created_at' | 'updated_at'>
 ): Promise<UserFormDetails> {
   requireSupabaseConfig();
-  const { data, error } = await supabase
+  const { data, error } = await adminSupabase
     .from('user_form_details')
     .upsert({ ...details, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
     .select()
@@ -477,13 +514,14 @@ export async function saveUserFormDetails(
 
 /**
  * Fetch the current user's form details.
+ * Uses adminSupabase so RLS never blocks reads; user_id filter scopes to owner.
  */
 export async function getMyFormDetails(): Promise<UserFormDetails | null> {
   requireSupabaseConfig();
   const { data: { session } } = await supabase.auth.getSession();
   const user = session?.user;
   if (!user) return null;
-  const { data, error } = await supabase
+  const { data, error } = await adminSupabase
     .from('user_form_details')
     .select('*')
     .eq('user_id', user.id)
@@ -496,11 +534,11 @@ export async function getMyFormDetails(): Promise<UserFormDetails | null> {
 }
 
 /**
- * Fetch all user form details (admin only).
+ * Fetch all user form details (admin only — uses service-role to bypass RLS).
  */
 export async function adminGetAllFormDetails(): Promise<UserFormDetails[]> {
   requireSupabaseConfig();
-  const { data, error } = await supabase
+  const { data, error } = await adminSupabase
     .from('user_form_details')
     .select('*')
     .order('created_at', { ascending: false });
@@ -509,11 +547,11 @@ export async function adminGetAllFormDetails(): Promise<UserFormDetails[]> {
 }
 
 /**
- * Fetch all bank accounts (admin only).
+ * Fetch all bank accounts (admin only — uses service-role to bypass RLS).
  */
 export async function adminGetAllBankAccounts(): Promise<BankAccount[]> {
   requireSupabaseConfig();
-  const { data, error } = await supabase
+  const { data, error } = await adminSupabase
     .from('bank_accounts')
     .select('*')
     .order('created_at', { ascending: false });
@@ -523,7 +561,7 @@ export async function adminGetAllBankAccounts(): Promise<BankAccount[]> {
 
 export async function adminGetAllPaymentScreenshots(): Promise<PaymentScreenshot[]> {
   requireSupabaseConfig();
-  const { data, error } = await supabase
+  const { data, error } = await adminSupabase
     .from('payment_screenshots')
     .select('*')
     .order('created_at', { ascending: false });

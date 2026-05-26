@@ -1,4 +1,4 @@
-import { Fragment, useState, useEffect, useCallback } from 'react';
+import { Fragment, useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Users,
@@ -19,7 +19,20 @@ import {
   AlertCircle,
   Upload,
   Download,
+  BarChart2,
 } from 'lucide-react';
+import {
+  BarChart,
+  Bar,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from 'recharts';
 import { BrandLogo } from '../components/BrandLogo';
 import { useAdminAuth } from '../contexts/AdminAuthContext';
 import {
@@ -63,7 +76,8 @@ const STATUS_CONFIG: Record<
   completed: { label: 'Completed', bg: 'bg-gray-100', text: 'text-gray-700', dot: 'bg-gray-500' },
 };
 
-type Tab = 'submissions' | 'users' | 'bank';
+type Tab = 'submissions' | 'users' | 'bank' | 'charts';
+type ChartPeriod = 'daily' | 'weekly' | 'monthly';
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -84,14 +98,23 @@ function StatCard({
   label,
   value,
   color,
+  onClick,
+  active,
 }: {
   icon: React.ElementType;
   label: string;
   value: number;
   color: string;
+  onClick?: () => void;
+  active?: boolean;
 }) {
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex items-center gap-4">
+    <div
+      onClick={onClick}
+      className={`bg-white rounded-2xl border shadow-sm p-5 flex items-center gap-4 transition-all
+        ${onClick ? 'cursor-pointer hover:shadow-md hover:-translate-y-0.5 select-none' : ''}
+        ${active ? 'ring-2 ring-green-500 border-green-300' : 'border-gray-100'}`}
+    >
       <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${color}`}>
         <Icon size={22} className="text-white" />
       </div>
@@ -164,7 +187,7 @@ export const AdminDashboardPage = () => {
 
   // Filters & pagination — submissions
   const [subSearch, setSubSearch] = useState('');
-  const [subStatusFilter, setSubStatusFilter] = useState<BuybackSubmission['status'] | 'all'>('all');
+  const [subStatusFilter, setSubStatusFilter] = useState<BuybackSubmission['status'] | 'all' | 'active'>('all');
   const [subTypeFilter, setSubTypeFilter] = useState<'all' | 'sell' | 'buy'>('all');
   const [subPage, setSubPage] = useState(1);
 
@@ -179,6 +202,9 @@ export const AdminDashboardPage = () => {
 
   // Expanded submission row
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
+
+  // Charts
+  const [chartPeriod, setChartPeriod] = useState<ChartPeriod>('monthly');
 
   // ── Data fetching ──────────────────────────────────────────────────────────
 
@@ -199,13 +225,25 @@ export const AdminDashboardPage = () => {
       if (fRes.status === 'fulfilled') setFormDetails(fRes.value);
       if (payRes.status === 'fulfilled') setPaymentScreenshots(payRes.value);
 
-      const failed = [pRes, sRes, bRes, fRes, payRes].filter((r) => r.status === 'rejected');
+      const named = [
+        { res: pRes,   label: 'profiles' },
+        { res: sRes,   label: 'buyback_submissions' },
+        { res: bRes,   label: 'bank_accounts' },
+        { res: fRes,   label: 'user_form_details' },
+        { res: payRes, label: 'payment_screenshots' },
+      ];
+      const failed = named.filter((n) => n.res.status === 'rejected');
       if (failed.length === 5) {
-        const msg = 'Failed to load data. Run the SQL fix in Supabase and try again.';
+        const firstReason =
+          failed[0].res.status === 'rejected'
+            ? (failed[0].res.reason as Error)?.message ?? 'unknown error'
+            : '';
+        const msg = `Failed to load data. Run scripts/sql/fix_admin_dashboard_complete.sql in Supabase SQL Editor and try again. (${firstReason})`;
         setError(msg);
-        toast.error(msg);
+        toast.error('Failed to load all dashboard data. Run the SQL fix in Supabase.');
       } else if (failed.length > 0) {
-        toast.warning('Some data could not be loaded. Check Supabase RLS policies.');
+        const labels = failed.map((n) => n.label).join(', ');
+        toast.warning(`Some data could not be loaded: ${labels}. Check Supabase RLS policies.`);
       }
     } finally {
       setLoading(false);
@@ -283,9 +321,89 @@ export const AdminDashboardPage = () => {
   const stats = {
     totalUsers: profiles.length,
     totalSubmissions: submissions.length,
-    pending: submissions.filter((s) => s.status === 'pending').length,
-    approved: submissions.filter((s) => s.status === 'approved').length,
+    // "Active" = pending + reviewing (still in the queue)
+    active: submissions.filter((s) => s.status === 'pending' || s.status === 'reviewing').length,
+    // "Processing" = approved (moving forward / payment processing stage)
+    processing: submissions.filter((s) => s.status === 'approved').length,
   };
+
+  // ── Chart data ─────────────────────────────────────────────────────────────
+
+  const chartData = useMemo(() => {
+    const withPrice = submissions.filter(
+      (s) => s.expected_price != null && s.expected_price > 0 && s.created_at
+    );
+
+    function getPeriodKey(dateStr: string, period: ChartPeriod): string {
+      const d = new Date(dateStr);
+      if (period === 'daily') {
+        return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+      }
+      if (period === 'weekly') {
+        // ISO week: Mon-based
+        const day = d.getDay() === 0 ? 6 : d.getDay() - 1;
+        const monday = new Date(d);
+        monday.setDate(d.getDate() - day);
+        return monday.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+      }
+      // monthly
+      return d.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' });
+    }
+
+    function getSortKey(dateStr: string, period: ChartPeriod): number {
+      const d = new Date(dateStr);
+      if (period === 'daily') return d.setHours(0, 0, 0, 0);
+      if (period === 'weekly') {
+        const day = d.getDay() === 0 ? 6 : d.getDay() - 1;
+        return new Date(d).setDate(d.getDate() - day);
+      }
+      return new Date(d.getFullYear(), d.getMonth(), 1).getTime();
+    }
+
+    const bucketMap = new Map<string, { sortKey: number; prices: number[]; count: number }>();
+
+    for (const s of withPrice) {
+      const key = getPeriodKey(s.created_at!, chartPeriod);
+      const sortKey = getSortKey(s.created_at!, chartPeriod);
+      const existing = bucketMap.get(key) ?? { sortKey, prices: [], count: 0 };
+      existing.prices.push(s.expected_price!);
+      existing.count += 1;
+      bucketMap.set(key, existing);
+    }
+
+    return Array.from(bucketMap.entries())
+      .sort((a, b) => a[1].sortKey - b[1].sortKey)
+      .slice(-30) // cap at 30 periods to avoid overcrowding
+      .map(([period, { prices, count }]) => {
+        const avg = prices.reduce((a, b) => a + b, 0) / prices.length;
+        const max = Math.max(...prices);
+        const min = Math.min(...prices);
+        return {
+          period,
+          avg: Math.round(avg),
+          max,
+          min,
+          count,
+        };
+      });
+  }, [submissions, chartPeriod]);
+
+  // Top products by submission count for bar chart
+  const productChartData = useMemo(() => {
+    const map = new Map<string, { name: string; count: number; avgPrice: number; totalPrice: number }>();
+    for (const s of submissions) {
+      const existing = map.get(s.product_id) ?? { name: s.product_name, count: 0, avgPrice: 0, totalPrice: 0 };
+      existing.count += 1;
+      if (s.expected_price && s.expected_price > 0) {
+        existing.totalPrice += s.expected_price;
+      }
+      map.set(s.product_id, existing);
+    }
+    return Array.from(map.values())
+      .map((p) => ({ ...p, avgPrice: p.count > 0 ? Math.round(p.totalPrice / p.count) : 0 }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+  }, [submissions]);
 
   // ── Filtered / paginated data ───────────────────────────────────────────────
 
@@ -297,7 +415,12 @@ export const AdminDashboardPage = () => {
       s.contact_phone.includes(q) ||
       s.product_name.toLowerCase().includes(q) ||
       s.location.toLowerCase().includes(q);
-    const matchesStatus = subStatusFilter === 'all' || s.status === subStatusFilter;
+    const matchesStatus =
+      subStatusFilter === 'all'
+        ? true
+        : subStatusFilter === 'active'
+        ? (s.status === 'pending' || s.status === 'reviewing')
+        : s.status === subStatusFilter;
     const matchesType = subTypeFilter === 'all' || s.submission_type === subTypeFilter;
     return matchesSearch && matchesStatus && matchesType;
   });
@@ -342,7 +465,7 @@ export const AdminDashboardPage = () => {
     return (
       <div className="min-h-screen bg-gray-950 flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 border-4 border-lime-500 border-t-transparent rounded-full animate-spin" />
+          <div className="w-10 h-10 border-4 border-green-500 border-t-transparent rounded-full animate-spin" />
           <p className="text-sm text-gray-400">Loading admin dashboard...</p>
         </div>
       </div>
@@ -402,10 +525,26 @@ export const AdminDashboardPage = () => {
 
         {/* ── Stats ── */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard icon={Users} label="Total Users" value={stats.totalUsers} color="bg-blue-500" />
-          <StatCard icon={ClipboardList} label="Total Submissions" value={stats.totalSubmissions} color="bg-purple-500" />
-          <StatCard icon={Clock} label="Pending" value={stats.pending} color="bg-yellow-500" />
-          <StatCard icon={TrendingUp} label="Approved" value={stats.approved} color="bg-green-600" />
+          <StatCard
+            icon={TrendingUp} label="Active" value={stats.active} color="bg-green-600"
+            onClick={() => { setActiveTab('submissions'); setSubStatusFilter('active'); setSubTypeFilter('all'); }}
+            active={activeTab === 'submissions' && subStatusFilter === 'active'}
+          />
+          <StatCard
+            icon={ClipboardList} label="Submissions" value={stats.totalSubmissions} color="bg-purple-500"
+            onClick={() => { setActiveTab('submissions'); setSubStatusFilter('all'); setSubTypeFilter('all'); }}
+            active={activeTab === 'submissions' && subStatusFilter === 'all'}
+          />
+          <StatCard
+            icon={Clock} label="Processing" value={stats.processing} color="bg-orange-500"
+            onClick={() => { setActiveTab('submissions'); setSubStatusFilter('approved'); setSubTypeFilter('all'); }}
+            active={activeTab === 'submissions' && subStatusFilter === 'approved'}
+          />
+          <StatCard
+            icon={Users} label="Total Users" value={stats.totalUsers} color="bg-blue-500"
+            onClick={() => setActiveTab('users')}
+            active={activeTab === 'users'}
+          />
         </div>
 
         {/* ── Tabs ── */}
@@ -415,6 +554,7 @@ export const AdminDashboardPage = () => {
               { id: 'submissions', label: 'Submissions', icon: ClipboardList },
               { id: 'users', label: 'Users', icon: Users },
               { id: 'bank', label: 'Bank Details', icon: Landmark },
+              { id: 'charts', label: 'Charts', icon: BarChart2 },
             ] as const
           ).map(({ id, label, icon: Icon }) => (
             <button
@@ -422,7 +562,7 @@ export const AdminDashboardPage = () => {
               onClick={() => setActiveTab(id)}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition ${
                 activeTab === id
-                  ? 'bg-lime-500 text-gray-950'
+                  ? 'bg-green-600 text-white'
                   : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800'
               }`}
             >
@@ -443,13 +583,13 @@ export const AdminDashboardPage = () => {
                   placeholder="Search name, phone, product..."
                   value={subSearch}
                   onChange={(e) => setSubSearch(e.target.value)}
-                  className="w-full pl-8 pr-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-lime-500/50"
+                  className="w-full pl-8 pr-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500/50"
                 />
               </div>
               <select
                 value={subStatusFilter}
                 onChange={(e) => setSubStatusFilter(e.target.value as typeof subStatusFilter)}
-                className="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-lime-500/50"
+                className="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-green-500/50"
               >
                 <option value="all">All Statuses</option>
                 {SUBMISSION_STATUSES.map((s) => (
@@ -461,10 +601,10 @@ export const AdminDashboardPage = () => {
               <select
                 value={subTypeFilter}
                 onChange={(e) => setSubTypeFilter(e.target.value as typeof subTypeFilter)}
-                className="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-lime-500/50"
+                className="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-green-500/50"
               >
                 <option value="all">All Types</option>
-                <option value="sell">Sell</option>
+                <option value="sell">Active (Sell)</option>
                 <option value="buy">Buy</option>
               </select>
               <span className="text-xs text-gray-500 whitespace-nowrap">
@@ -522,11 +662,11 @@ export const AdminDashboardPage = () => {
                             <span
                               className={`px-2 py-0.5 rounded text-xs font-semibold ${
                                 sub.submission_type === 'sell'
-                                  ? 'bg-orange-900/50 text-orange-300'
+                                  ? 'bg-green-900/50 text-green-300'
                                   : 'bg-sky-900/50 text-sky-300'
                               }`}
                             >
-                              {sub.submission_type === 'sell' ? 'Sell' : 'Buy'}
+                              {sub.submission_type === 'sell' ? 'Active' : 'Buy'}
                             </span>
                           </td>
                           <td className="px-4 py-3 text-gray-400 max-w-[140px] truncate">
@@ -542,7 +682,7 @@ export const AdminDashboardPage = () => {
                                 )
                               }
                               disabled={updatingStatus === sub.id}
-                              className={`text-xs rounded-lg px-2 py-1 border focus:outline-none focus:ring-2 focus:ring-lime-500/40 transition ${
+                              className={`text-xs rounded-lg px-2 py-1 border focus:outline-none focus:ring-2 focus:ring-green-500/40 transition ${
                                 STATUS_CONFIG[sub.status ?? 'pending'].bg
                               } ${STATUS_CONFIG[sub.status ?? 'pending'].text} border-transparent bg-opacity-80 cursor-pointer disabled:opacity-60`}
                             >
@@ -620,7 +760,7 @@ export const AdminDashboardPage = () => {
                   placeholder="Search name, phone, email..."
                   value={userSearch}
                   onChange={(e) => setUserSearch(e.target.value)}
-                  className="w-full pl-8 pr-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-lime-500/50"
+                  className="w-full pl-8 pr-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500/50"
                 />
               </div>
               <span className="text-xs text-gray-500 whitespace-nowrap">
@@ -632,7 +772,7 @@ export const AdminDashboardPage = () => {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-800 text-left">
-                    {['User', 'Phone', 'Form Details', 'Bank Details', 'Role', 'Joined'].map((h) => (
+                    {['User', 'Phone / Login', 'Submissions', 'Form Details', 'Bank Details', 'Role', 'Joined'].map((h) => (
                       <th
                         key={h}
                         className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap"
@@ -645,7 +785,7 @@ export const AdminDashboardPage = () => {
                 <tbody className="divide-y divide-gray-800/60">
                   {pagedUsers.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-4 py-12 text-center text-gray-500">
+                      <td colSpan={7} className="px-4 py-12 text-center text-gray-500">
                         No users found.
                       </td>
                     </tr>
@@ -659,25 +799,37 @@ export const AdminDashboardPage = () => {
                         <tr key={profile.id} className="hover:bg-gray-800/40 transition align-top">
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-2.5">
-                              <div className="w-8 h-8 rounded-full bg-lime-500/20 text-lime-400 flex items-center justify-center text-sm font-bold shrink-0">
+                              <div className="w-8 h-8 rounded-full bg-green-500/20 text-green-400 flex items-center justify-center text-sm font-bold shrink-0">
                                 {initial}
                               </div>
                               <div>
                                 <div className="font-medium text-gray-200">
                                   {profile.full_name ?? <span className="text-gray-500 italic">No name</span>}
                                 </div>
-                                <div className="text-xs text-gray-500">{subCount} submission{subCount !== 1 ? 's' : ''}</div>
+                                {profile.email && (
+                                  <div className="text-[11px] text-gray-500 font-mono truncate max-w-[160px]">{profile.email}</div>
+                                )}
                               </div>
                             </div>
                           </td>
-                          <td className="px-4 py-3 text-gray-400">{profile.phone ?? '—'}</td>
+                          <td className="px-4 py-3 text-gray-400 text-xs">
+                            <div>{profile.phone ?? '—'}</div>
+                            {profile.email && (
+                              <div className="text-[11px] text-green-400 mt-0.5 break-all">{profile.email}</div>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-900/40 text-purple-300">
+                              {subCount} submission{subCount !== 1 ? 's' : ''}
+                            </span>
+                          </td>
                           <td className="px-4 py-3 text-gray-400 text-xs">
                             {fd ? (
                               <div className="space-y-0.5">
                                 {fd.address && <div>{fd.address}</div>}
                                 {fd.city && <div>{fd.city}{fd.state ? `, ${fd.state}` : ''}</div>}
                                 {fd.pincode && <div>{fd.pincode}</div>}
-                                {fd.crop_type && <div className="text-lime-400">Crop: {fd.crop_type}</div>}
+                                {fd.crop_type && <div className="text-green-400">Crop: {fd.crop_type}</div>}
                                 {fd.acreage != null && <div>{fd.acreage} acres</div>}
                                 {fd.farming_method && <div className="capitalize">{fd.farming_method}</div>}
                               </div>
@@ -691,7 +843,7 @@ export const AdminDashboardPage = () => {
                                 {bank.branch_name && <div>{bank.branch_name}</div>}
                                 <div className="font-mono">{'•'.repeat(Math.max(0, bank.account_number.length - 4))}{bank.account_number.slice(-4)}</div>
                                 <div>{bank.ifsc_code}</div>
-                                {bank.upi_id && <div className="text-lime-400">{bank.upi_id}</div>}
+                                {bank.upi_id && <div className="text-green-400">{bank.upi_id}</div>}
                               </div>
                             ) : <span className="text-gray-600 italic">No bank details</span>}
                           </td>
@@ -699,7 +851,7 @@ export const AdminDashboardPage = () => {
                             <span
                               className={`px-2 py-0.5 rounded text-xs font-semibold ${
                                 profile.role === 'admin'
-                                  ? 'bg-lime-900/50 text-lime-300'
+                                  ? 'bg-green-900/50 text-green-300'
                                   : 'bg-gray-800 text-gray-400'
                               }`}
                             >
@@ -741,7 +893,7 @@ export const AdminDashboardPage = () => {
                   placeholder="Search holder name, bank, IFSC..."
                   value={bankSearch}
                   onChange={(e) => setBankSearch(e.target.value)}
-                  className="w-full pl-8 pr-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-lime-500/50"
+                  className="w-full pl-8 pr-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500/50"
                 />
               </div>
               <span className="text-xs text-gray-500 whitespace-nowrap">
@@ -814,7 +966,7 @@ export const AdminDashboardPage = () => {
                           <td className="px-4 py-3 font-mono text-gray-400">{bank.ifsc_code}</td>
                           <td className="px-4 py-3 text-gray-400 text-xs">
                             {bank.branch_name && <div>{bank.branch_name}</div>}
-                            {bank.upi_id && <div className="text-lime-400">{bank.upi_id}</div>}
+                            {bank.upi_id && <div className="text-green-400">{bank.upi_id}</div>}
                             {!bank.branch_name && !bank.upi_id && <span className="text-gray-600">—</span>}
                           </td>
                           <td className="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">
@@ -823,7 +975,7 @@ export const AdminDashboardPage = () => {
                                 <button
                                   type="button"
                                   onClick={() => handlePaymentDownload(latestPayment)}
-                                  className="inline-flex w-fit items-center gap-1.5 rounded-lg border border-gray-700 px-2 py-1 text-gray-300 transition hover:border-lime-500 hover:text-lime-300"
+                                  className="inline-flex w-fit items-center gap-1.5 rounded-lg border border-gray-700 px-2 py-1 text-gray-300 transition hover:border-green-500 hover:text-green-300"
                                   title={latestPayment.file_name}
                                 >
                                   <Download size={13} />
@@ -832,7 +984,7 @@ export const AdminDashboardPage = () => {
                               ) : (
                                 <span className="text-gray-600">No file</span>
                               )}
-                              <label className="inline-flex w-fit cursor-pointer items-center gap-1.5 rounded-lg bg-lime-500/10 px-2 py-1 font-semibold text-lime-300 transition hover:bg-lime-500/20">
+                              <label className="inline-flex w-fit cursor-pointer items-center gap-1.5 rounded-lg bg-green-500/10 px-2 py-1 font-semibold text-green-300 transition hover:bg-green-500/20">
                                 <Upload size={13} />
                                 {isUploading ? 'Uploading...' : 'Upload'}
                                 <input
@@ -873,6 +1025,156 @@ export const AdminDashboardPage = () => {
                 onPrev={() => setBankPage((p) => p - 1)}
                 onNext={() => setBankPage((p) => p + 1)}
               />
+            </div>
+          </section>
+        )}
+
+        {/* ── Charts Tab ── */}
+        {activeTab === 'charts' && (
+          <section className="space-y-6">
+            {/* Period selector */}
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-gray-400 font-medium">View by:</span>
+              <div className="flex gap-1 bg-gray-900 rounded-xl p-1 border border-gray-800">
+                {(['daily', 'weekly', 'monthly'] as ChartPeriod[]).map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => setChartPeriod(p)}
+                    className={`px-4 py-1.5 rounded-lg text-sm font-medium capitalize transition ${
+                      chartPeriod === p
+                        ? 'bg-green-600 text-white'
+                        : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800'
+                    }`}
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
+              <span className="text-xs text-gray-600">
+                {chartData.length} period{chartData.length !== 1 ? 's' : ''}
+              </span>
+            </div>
+
+            {/* Price trend chart */}
+            <div className="bg-gray-900 rounded-2xl border border-gray-800 p-5">
+              <h3 className="text-sm font-semibold text-gray-300 mb-1">
+                Product Price Trend ({chartPeriod === 'daily' ? 'Daily' : chartPeriod === 'weekly' ? 'Weekly' : 'Monthly'})
+              </h3>
+              <p className="text-xs text-gray-500 mb-5">Average, min and max expected price per {chartPeriod.replace('ly', '')}</p>
+              {chartData.length === 0 ? (
+                <div className="flex items-center justify-center h-48 text-gray-600 text-sm">
+                  No price data available yet.
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={280}>
+                  <LineChart data={chartData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                    <XAxis
+                      dataKey="period"
+                      tick={{ fill: '#9CA3AF', fontSize: 11 }}
+                      tickLine={false}
+                      axisLine={{ stroke: '#374151' }}
+                    />
+                    <YAxis
+                      tick={{ fill: '#9CA3AF', fontSize: 11 }}
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={(v: number) => `₹${v}`}
+                    />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151', borderRadius: 8, fontSize: 12 }}
+                      labelStyle={{ color: '#D1FAE5', fontWeight: 600 }}
+                      formatter={(value: unknown, name: unknown) => [`₹${value}`, name === 'avg' ? 'Avg Price' : name === 'max' ? 'Max Price' : 'Min Price']}
+                    />
+                    <Legend
+                      formatter={(val) => val === 'avg' ? 'Avg' : val === 'max' ? 'Max' : 'Min'}
+                      wrapperStyle={{ fontSize: 12, color: '#9CA3AF' }}
+                    />
+                    <Line type="monotone" dataKey="avg" stroke="#10B981" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
+                    <Line type="monotone" dataKey="max" stroke="#F59E0B" strokeWidth={1.5} dot={false} strokeDasharray="4 2" />
+                    <Line type="monotone" dataKey="min" stroke="#6B7280" strokeWidth={1.5} dot={false} strokeDasharray="4 2" />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+
+            {/* Submissions count chart */}
+            <div className="bg-gray-900 rounded-2xl border border-gray-800 p-5">
+              <h3 className="text-sm font-semibold text-gray-300 mb-1">
+                Submission Volume ({chartPeriod === 'daily' ? 'Daily' : chartPeriod === 'weekly' ? 'Weekly' : 'Monthly'})
+              </h3>
+              <p className="text-xs text-gray-500 mb-5">Number of submissions with price data per {chartPeriod.replace('ly', '')}</p>
+              {chartData.length === 0 ? (
+                <div className="flex items-center justify-center h-48 text-gray-600 text-sm">
+                  No data available yet.
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart data={chartData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
+                    <XAxis
+                      dataKey="period"
+                      tick={{ fill: '#9CA3AF', fontSize: 11 }}
+                      tickLine={false}
+                      axisLine={{ stroke: '#374151' }}
+                    />
+                    <YAxis
+                      tick={{ fill: '#9CA3AF', fontSize: 11 }}
+                      tickLine={false}
+                      axisLine={false}
+                      allowDecimals={false}
+                    />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151', borderRadius: 8, fontSize: 12 }}
+                      labelStyle={{ color: '#D1FAE5', fontWeight: 600 }}
+                      formatter={(value: unknown) => [String(value), 'Submissions']}
+                    />
+                    <Bar dataKey="count" fill="#10B981" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+
+            {/* Top products chart */}
+            <div className="bg-gray-900 rounded-2xl border border-gray-800 p-5">
+              <h3 className="text-sm font-semibold text-gray-300 mb-1">Top Products by Submissions</h3>
+              <p className="text-xs text-gray-500 mb-5">Top 10 products with average expected price</p>
+              {productChartData.length === 0 ? (
+                <div className="flex items-center justify-center h-48 text-gray-600 text-sm">
+                  No product data available yet.
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={260}>
+                  <BarChart data={productChartData} layout="vertical" margin={{ top: 5, right: 60, left: 10, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" horizontal={false} />
+                    <XAxis
+                      type="number"
+                      tick={{ fill: '#9CA3AF', fontSize: 11 }}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <YAxis
+                      type="category"
+                      dataKey="name"
+                      tick={{ fill: '#9CA3AF', fontSize: 11 }}
+                      tickLine={false}
+                      axisLine={false}
+                      width={90}
+                    />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151', borderRadius: 8, fontSize: 12 }}
+                      labelStyle={{ color: '#D1FAE5', fontWeight: 600 }}
+                      formatter={(value: unknown, name: unknown) => [
+                        name === 'count' ? String(value) : `₹${value}`,
+                        name === 'count' ? 'Submissions' : 'Avg Price (₹)',
+                      ]}
+                    />
+                    <Legend wrapperStyle={{ fontSize: 12, color: '#9CA3AF' }} formatter={(val) => val === 'count' ? 'Submissions' : 'Avg Price (₹)'} />
+                    <Bar dataKey="count" fill="#6366F1" radius={[0, 4, 4, 0]} />
+                    <Bar dataKey="avgPrice" fill="#F59E0B" radius={[0, 4, 4, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
             </div>
           </section>
         )}

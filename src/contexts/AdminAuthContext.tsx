@@ -2,6 +2,11 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase, checkIsAdmin } from '../lib/supabase';
 import { User } from '@supabase/supabase-js';
 
+// ─── Static admin credentials ─────────────────────────────────────────────────
+const STATIC_ADMIN_ID       = 'admin';
+const STATIC_ADMIN_PASSWORD = 'IGO@Admin2026';
+const SESSION_KEY           = 'igo_static_admin';
+
 interface AdminAuthContextType {
   user: User | null;
   loading: boolean;
@@ -16,83 +21,93 @@ interface AdminAuthContextType {
 const AdminAuthContext = createContext<AdminAuthContextType | undefined>(undefined);
 
 export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [user, setUser]               = useState<User | null>(null);
+  // Initialise synchronously from sessionStorage so there is no loading flash
+  const [isAdmin, setIsAdmin]         = useState<boolean>(() => sessionStorage.getItem(SESSION_KEY) === '1');
+  const [loading, setLoading]         = useState<boolean>(() => sessionStorage.getItem(SESSION_KEY) !== '1');
+  const [error, setError]             = useState<string | null>(null);
   const [checkingRole, setCheckingRole] = useState(false);
 
-  const verifyAdminRole = async (u: User | null) => {
-    if (!u) {
-      setIsAdmin(false);
+  // ── On mount: if no static session, verify via Supabase ──────────────────────
+  useEffect(() => {
+    if (sessionStorage.getItem(SESSION_KEY) === '1') {
+      // Static session already active — nothing to do
       return;
     }
-    setCheckingRole(true);
-    try {
-      const adminStatus = await checkIsAdmin();
-      setIsAdmin(adminStatus);
-    } catch {
-      setIsAdmin(false);
-    } finally {
-      setCheckingRole(false);
-    }
-  };
 
-  useEffect(() => {
     const checkAuth = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        setUser(user);
-        await verifyAdminRole(user);
-      } catch (err) {
-        console.error('Admin auth check error:', err);
+        // 5 s timeout so a slow/offline Supabase never hangs the spinner forever
+        const result = await Promise.race([
+          supabase.auth.getUser(),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('timeout')), 5000)
+          ),
+        ]);
+        const authUser = (result as Awaited<ReturnType<typeof supabase.auth.getUser>>).data.user;
+        setUser(authUser);
+        if (authUser) {
+          setCheckingRole(true);
+          try {
+            const ok = await checkIsAdmin();
+            setIsAdmin(ok);
+          } catch {
+            setIsAdmin(false);
+          } finally {
+            setCheckingRole(false);
+          }
+        }
+      } catch {
+        // Timeout or network error — treat as not logged in
       } finally {
         setLoading(false);
       }
     };
 
-    checkAuth();
+    void checkAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (sessionStorage.getItem(SESSION_KEY) === '1') return;
       const authUser = session?.user ?? null;
       setUser(authUser);
-      await verifyAdminRole(authUser);
+      if (authUser) {
+        try { setIsAdmin(await checkIsAdmin()); } catch { setIsAdmin(false); }
+      } else {
+        setIsAdmin(false);
+      }
     });
 
     return () => subscription?.unsubscribe();
   }, []);
 
+  // ── Login ────────────────────────────────────────────────────────────────────
   const login = async (email: string, password: string) => {
     setError(null);
+    setLoading(true);
     try {
-      setLoading(true);
-      const { data, error: loginError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      // Check static credentials first (case-sensitive)
+      if (email.trim() === STATIC_ADMIN_ID && password === STATIC_ADMIN_PASSWORD) {
+        sessionStorage.setItem(SESSION_KEY, '1');
+        setIsAdmin(true);
+        return;
+      }
+
+      // Fallback: Supabase email auth
+      const { data, error: loginError } = await supabase.auth.signInWithPassword({ email, password });
       if (loginError) throw loginError;
 
       setUser(data.user);
+      const ok = await checkIsAdmin();
+      setIsAdmin(ok);
 
-      // Verify admin role after login
-      const adminStatus = await checkIsAdmin();
-      setIsAdmin(adminStatus);
-
-      if (!adminStatus) {
-        // Sign out immediately — this account is not an admin
+      if (!ok) {
         await supabase.auth.signOut();
         setUser(null);
         setIsAdmin(false);
-        throw new Error(
-          'Access denied. Your account does not have admin privileges. ' +
-            'Contact the super-admin to grant access.'
-        );
+        throw new Error('Access denied. This account does not have admin privileges.');
       }
     } catch (err: unknown) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : 'Login failed';
+      const message = err instanceof Error ? err.message : 'Login failed';
       setError(message);
       throw err;
     } finally {
@@ -100,17 +115,15 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   };
 
+  // ── Logout ───────────────────────────────────────────────────────────────────
   const logout = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      const { error: logoutError } = await supabase.auth.signOut();
-      if (logoutError) throw logoutError;
-      setUser(null);
+      sessionStorage.removeItem(SESSION_KEY);
       setIsAdmin(false);
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Logout failed';
-      setError(message);
-      throw err;
+      setUser(null);
+      // Best-effort Supabase signout (no-op if logged in via static creds)
+      await supabase.auth.signOut().catch(() => {});
     } finally {
       setLoading(false);
     }

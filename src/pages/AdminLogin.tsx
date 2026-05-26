@@ -31,10 +31,10 @@ export const AdminLogin = () => {
 
   return (
     <div className="min-h-screen flex">
-      <div className="hidden lg:flex flex-col justify-between w-1/2 bg-gray-950 p-12 relative overflow-hidden">
+      <div className="hidden lg:flex flex-col justify-between w-1/2 bg-green-900 p-12 relative overflow-hidden">
         <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-lime-500/10 rounded-full blur-3xl" />
-          <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-green-400/8 rounded-full blur-3xl" />
+          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-green-400/20 rounded-full blur-3xl" />
+          <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-green-300/15 rounded-full blur-3xl" />
         </div>
 
         <BrandLogo
@@ -54,7 +54,7 @@ export const AdminLogin = () => {
             <div className="text-5xl font-black text-white leading-tight mb-4">
               Manage Your
               <br />
-              <span className="text-lime-400">Farm Marketplace</span>
+              <span className="text-green-300">Farm Marketplace</span>
             </div>
             <p className="text-gray-400 text-lg leading-relaxed">
               Control product listings, market prices, and farmgate marketplace operations from one powerful dashboard.
@@ -112,8 +112,8 @@ export const AdminLogin = () => {
           <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
             <div className="px-8 pt-8 pb-6 border-b border-gray-50">
               <div className="flex items-center gap-3 mb-2">
-                <div className="p-2.5 bg-lime-100 rounded-xl">
-                  <ShieldCheck size={22} className="text-lime-600" />
+                <div className="p-2.5 bg-green-100 rounded-xl">
+                  <ShieldCheck size={22} className="text-green-600" />
                 </div>
                 <div>
                   <h1 className="text-2xl font-black text-gray-900">Admin Login</h1>
@@ -139,14 +139,14 @@ export const AdminLogin = () => {
 
               <div>
                 <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
-                  Email Address
+                  User ID
                 </label>
                 <input
-                  type="email"
+                  type="text"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="your@email.com"
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-sm focus:border-lime-500 focus:outline-none transition-colors"
+                  placeholder="admin"
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-sm focus:border-green-600 focus:outline-none transition-colors"
                 />
               </div>
 
@@ -160,7 +160,7 @@ export const AdminLogin = () => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Enter password"
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-sm focus:border-lime-500 focus:outline-none transition-colors pr-12"
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-sm focus:border-green-600 focus:outline-none transition-colors pr-12"
                   />
                   <button
                     type="button"
@@ -177,7 +177,7 @@ export const AdminLogin = () => {
                 whileTap={{ scale: 0.98 }}
                 type="submit"
                 disabled={loading}
-                className="w-full flex items-center justify-center gap-2 py-3.5 bg-lime-500 hover:bg-lime-600 text-white font-bold rounded-xl transition-all shadow-md shadow-lime-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full flex items-center justify-center gap-2 py-3.5 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl transition-all shadow-md shadow-green-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? (
                   <>
@@ -199,13 +199,24 @@ export const AdminLogin = () => {
             <div className="px-8 py-5 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
               <p className="text-xs text-gray-500">
                 Need help?{' '}
-                <Link to="/contact" className="text-lime-600 font-semibold hover:underline">
+                <Link to="/contact" className="text-green-600 font-semibold hover:underline">
                   Contact support
                 </Link>
               </p>
               <Link to="/" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">
                 ← Back to site
               </Link>
+            </div>
+
+            {/* Credentials hint */}
+            <div className="mx-8 mb-6 px-4 py-3 bg-green-50 border border-green-200 rounded-xl">
+              <p className="text-[11px] font-semibold text-green-800 mb-1 flex items-center gap-1.5">
+                <ShieldCheck size={12} className="text-green-600" /> Default Admin Credentials
+              </p>
+              <div className="grid grid-cols-2 gap-x-4 text-[11px] text-green-700">
+                <span>User ID: <strong className="font-bold">admin</strong></span>
+                <span>Password: <strong className="font-bold">IGO@Admin2026</strong></span>
+              </div>
             </div>
           </div>
         </motion.div>

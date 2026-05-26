@@ -183,12 +183,12 @@ export const PriceCalculatorSection = () => {
             <div className="mt-4 flex justify-center">
               <a
                 href={`https://wa.me/918925893321?text=${encodeURIComponent(
-                  `Hi IGO Farmgate Mandi! I checked your price calculator:\n\n` +
+                  `Hi Farmgate Mandi! I checked your price calculator:\n\n` +
                   `🌱 Crop: ${data.label}\n` +
                   `📊 Market Price: ₹${data.market}/${data.unit}\n` +
                   `❌ Middleman Price: ₹${data.middleman}/${data.unit}\n` +
-                  `✅ IGO Fair Price: ₹${data.igo}/${data.unit}\n` +
-                  `💰 Yearly with IGO (1 tonne): ₹${Math.round(data.igo * data.yearlyQty).toLocaleString('en-IN')}\n\n` +
+                  `✅ Fair Price: ₹${data.igo}/${data.unit}\n` +
+                  `💰 Yearly (1 tonne): ₹${Math.round(data.igo * data.yearlyQty).toLocaleString('en-IN')}\n\n` +
                   `I want to know more about selling through Farmgate Mandi!`
                 )}`}
                 target="_blank"

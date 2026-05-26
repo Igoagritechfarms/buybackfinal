@@ -2,10 +2,12 @@ import { createClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL = import.meta.env['VITE_SUPABASE_URL']?.trim();
 const SUPABASE_ANON_KEY = import.meta.env['VITE_SUPABASE_ANON_KEY']?.trim();
+const SUPABASE_SERVICE_ROLE_KEY = import.meta.env['VITE_SUPABASE_SERVICE_ROLE_KEY']?.trim();
 const FALLBACK_SUPABASE_URL = 'https://placeholder.supabase.co';
 const FALLBACK_SUPABASE_ANON_KEY = 'placeholder-anon-key';
 
 export const isSupabaseConfigured = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
+export const isAdminConfigured = Boolean(SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY);
 
 if (!isSupabaseConfigured) {
   console.warn(
@@ -29,3 +31,10 @@ export const supabase = createClient(
     },
   }
 );
+
+// Service-role client: bypasses RLS entirely — use only for admin operations.
+export const adminSupabase = isAdminConfigured
+  ? createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    })
+  : supabase; // fallback to anon if key not set

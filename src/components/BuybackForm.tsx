@@ -2,7 +2,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   User, Phone, MapPin, Package, Calendar, Truck, CheckCircle2,
   TrendingUp, AlertCircle, ClipboardList, ChevronRight, ChevronLeft,
-  ShieldCheck, FileText,
+  FileText,
 } from 'lucide-react';
 import { useState, useCallback } from 'react';
 import { useBuybackForm } from '../hooks/useBuybackForm';
@@ -33,18 +33,7 @@ export const BuybackForm = ({ type }: FormProps) => {
     isSubmitting,
     submitError,
     handleSubmit,
-    otpSent,
-    otpCountdown,
-    isOtpVerifiedForCurrentPhone,
-    isCurrentPhoneValid,
-    isLoggedIn,
     hasVerifiedAccountPhone,
-    isSendingOtp,
-    isVerifyingOtp,
-    canResendOtp,
-    handleSendOtp,
-    handleVerifyOtp,
-    handleResendOtp,
   } = useBuybackForm(type);
 
   // Bracket notation required by noPropertyAccessFromIndexSignature tsconfig rule
@@ -67,10 +56,8 @@ export const BuybackForm = ({ type }: FormProps) => {
       return 'Please enter your full name.';
     if (!formData.phone || String(formData.phone).length < 10)
       return 'Please enter a valid 10-digit mobile number.';
-    if (!hasVerifiedAccountPhone && !isOtpVerifiedForCurrentPhone)
-      return 'Please verify your phone number with OTP.';
     return '';
-  }, [formData.name, formData.phone, isLoggedIn, isOtpVerifiedForCurrentPhone]);
+  }, [formData.name, formData.phone]);
 
   const validateStep2 = useCallback((): string => {
     if (!formData.product) return 'Please select a product.';
@@ -266,98 +253,7 @@ export const BuybackForm = ({ type }: FormProps) => {
                 </div>
                 {renderFieldError('phone')}
 
-                {/* OTP section — skip only if logged in WITH a verified profile phone */}
-                {hasVerifiedAccountPhone ? (
-                  <div className="flex items-center gap-2 mt-2 px-3 py-2 bg-green-50 border border-green-200 rounded-xl">
-                    <ShieldCheck size={14} className="text-green-600 shrink-0" />
-                    <p className="text-xs text-green-700 font-medium">
-                      Phone verified via your account.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-between mt-1.5">
-                    <p className="text-xs text-agri-earth-500">
-                      {isSendingOtp
-                        ? 'Sending OTP...'
-                        : otpSent
-                        ? 'OTP sent. Enter below to verify.'
-                        : 'Enter a valid number and send OTP.'}
-                    </p>
-                    {!otpSent && (
-                      <button
-                        type="button"
-                        onClick={handleSendOtp}
-                        disabled={isSendingOtp || !isCurrentPhoneValid}
-                        className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-agri-green-300 text-agri-green-700 bg-agri-green-50 hover:bg-agri-green-100 disabled:opacity-60 disabled:cursor-not-allowed"
-                      >
-                        {isSendingOtp ? 'Sending...' : 'Send OTP'}
-                      </button>
-                    )}
-                  </div>
-                )}
-
-                {/* OTP input */}
-                {!hasVerifiedAccountPhone && otpSent && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="mt-2 space-y-2 p-3 bg-agri-green-50 border border-agri-green-200 rounded-xl"
-                  >
-                    <div className="grid grid-cols-[1fr_auto] gap-2">
-                      <input
-                        type="text"
-                        placeholder="Enter 6-digit OTP"
-                        maxLength={6}
-                        inputMode="numeric"
-                        value={String(fd['otp'] || '')}
-                        onChange={(e) =>
-                          setFieldValue('otp', e.target.value.replace(/\D/g, ''))
-                        }
-                        className={`w-full p-2.5 rounded-xl border transition-all focus:ring-2 focus:ring-agri-green-600 outline-none ${
-                          er['otp'] ? 'border-red-500 bg-red-50' : 'border-agri-earth-200'
-                        }`}
-                      />
-                      <button
-                        type="button"
-                        onClick={handleVerifyOtp}
-                        disabled={
-                          isVerifyingOtp ||
-                          isOtpVerifiedForCurrentPhone ||
-                          String(fd['otp'] || '').length !== 6
-                        }
-                        className="btn-primary px-4 py-2.5 whitespace-nowrap text-sm"
-                      >
-                        {isVerifyingOtp
-                          ? 'Verifying...'
-                          : isOtpVerifiedForCurrentPhone
-                          ? 'Verified ✓'
-                          : 'Verify OTP'}
-                      </button>
-                    </div>
-                    {renderFieldError('otp')}
-                    <div className="flex items-center justify-between text-xs">
-                      <p
-                        className={
-                          isOtpVerifiedForCurrentPhone
-                            ? 'text-agri-green-700 font-semibold'
-                            : 'text-agri-earth-500'
-                        }
-                      >
-                        {isOtpVerifiedForCurrentPhone
-                          ? '✓ OTP verified. You can continue.'
-                          : 'Enter OTP and click Verify OTP.'}
-                      </p>
-                      <button
-                        type="button"
-                        onClick={handleResendOtp}
-                        disabled={!canResendOtp}
-                        className="font-semibold text-agri-green-700 disabled:text-agri-earth-400"
-                      >
-                        {canResendOtp ? 'Resend OTP' : `Resend in ${otpCountdown}s`}
-                      </button>
-                    </div>
-                  </motion.div>
-                )}
+                <p className="text-xs text-agri-earth-500 mt-1.5">Enter your contact number.</p>
               </div>
 
               {/* Step error */}

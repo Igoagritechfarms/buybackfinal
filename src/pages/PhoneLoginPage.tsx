@@ -46,7 +46,7 @@ export const PhoneLoginPage = () => {
   // Guard against redirect loops back to auth pages
   const from = rawFrom && rawFrom !== '/login' && rawFrom !== '/signup' ? rawFrom : '/dashboard';
 
-  const [method, setMethod] = useState<LoginMethod>('password');
+  const [method] = useState<LoginMethod>('password');
   const [step, setStep] = useState<'input' | 'otp-verify'>('input');
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
@@ -196,32 +196,6 @@ export const PhoneLoginPage = () => {
           </div>
 
           <div className="px-8 py-8">
-            {/* Login Method Toggle */}
-            {step === 'input' && (
-              <div className="mb-6 flex p-1 bg-gray-100 rounded-xl">
-                <button
-                  type="button"
-                  onClick={() => setMethod('password')}
-                  className={`flex-1 py-2 text-sm font-bold rounded-lg transition ${method === 'password' ? 'bg-white shadow-sm text-green-700' : 'text-gray-500'}`}
-                >
-                  Password
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMethod('otp-phone')}
-                  className={`flex-1 py-2 text-sm font-bold rounded-lg transition ${method === 'otp-phone' ? 'bg-white shadow-sm text-green-700' : 'text-gray-500'}`}
-                >
-                  Phone OTP
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMethod('otp-email')}
-                  className={`flex-1 py-2 text-sm font-bold rounded-lg transition ${method === 'otp-email' ? 'bg-white shadow-sm text-green-700' : 'text-gray-500'}`}
-                >
-                  Email OTP
-                </button>
-              </div>
-            )}
 
             {errorMessage && (
               <div className="mb-6 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">

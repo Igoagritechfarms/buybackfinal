@@ -80,7 +80,7 @@ export const HeroSection = () => (
               transition={{ duration: 0.8, delay: 0.35 }}
               className="text-xl md:text-2xl text-green-50 max-w-xl leading-relaxed font-bold"
             >
-              <span className="font-extrabold">IGO Farmgate  Mandi</span>{' '}
+              <span className="font-extrabold">Farmgate Mandi</span>{' '}
               is where your harvest gets the{' '}
               <span>
                 value it deserves

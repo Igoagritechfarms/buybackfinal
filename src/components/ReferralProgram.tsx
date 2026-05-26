@@ -102,20 +102,20 @@ export const ReferralProgram = () => {
 
   const handleShare = (channel: 'whatsapp' | 'email' | 'sms' | 'more') => {
     if (!referralLink) return;
-    const msg = `Join IGO Farmgate Mandi – buy and sell farm produce directly!\nUse my referral link: ${referralLink}`;
+    const msg = `Join Farmgate Mandi – buy and sell farm produce directly!\nUse my referral link: ${referralLink}`;
     switch (channel) {
       case 'whatsapp':
         window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, '_blank', 'noopener,noreferrer');
         break;
       case 'email':
-        window.open(`mailto:?subject=${encodeURIComponent('Join IGO Farmgate')}&body=${encodeURIComponent(msg)}`, '_blank', 'noopener,noreferrer');
+        window.open(`mailto:?subject=${encodeURIComponent('Join Farmgate Mandi')}&body=${encodeURIComponent(msg)}`, '_blank', 'noopener,noreferrer');
         break;
       case 'sms':
         window.open(`sms:?&body=${encodeURIComponent(msg)}`, '_blank', 'noopener,noreferrer');
         break;
       case 'more':
         if (navigator.share) {
-          navigator.share({ title: 'Join IGO Farmgate', text: msg, url: referralLink }).catch(() => {});
+          navigator.share({ title: 'Join Farmgate Mandi', text: msg, url: referralLink }).catch(() => {});
         } else {
           window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, '_blank', 'noopener,noreferrer');
         }

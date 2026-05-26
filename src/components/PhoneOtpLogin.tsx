@@ -3,7 +3,7 @@ import { Phone, ShieldCheck, RefreshCw, CheckCircle2, AlertCircle } from 'lucide
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
-// Empty string = same origin as Vite dev server (OTP routes live in vite.config.ts)
+// Empty string = same origin for both Vite dev and deployed API routes.
 const OTP_SERVER = '';
 const RESEND_COOLDOWN = 30; // seconds
 
@@ -87,11 +87,15 @@ export function PhoneOtpLogin() {
     clearMsg();
 
     try {
-      await apiPost('send-otp', { phone: digits });
+      const data = await apiPost('send-otp', { phone: digits });
+      const demoOtp = typeof (data as { otp?: string }).otp === 'string' ? (data as { otp?: string }).otp : '';
       setPhase('otp');
       setOtp('');
       setCountdown(RESEND_COOLDOWN);
-      setMsg({ type: 'success', text: 'OTP sent. Check the server console (simulated SMS).' });
+      setMsg({
+        type: 'success',
+        text: demoOtp ? `OTP sent successfully. Demo OTP: ${demoOtp}` : 'OTP sent successfully.',
+      });
     } catch (err) {
       setMsg({ type: 'error', text: err instanceof Error ? err.message : 'Failed to send OTP.' });
     } finally {
@@ -159,7 +163,7 @@ export function PhoneOtpLogin() {
           <h1 className="text-2xl font-bold text-gray-800">Phone OTP Login</h1>
           <p className="text-sm text-gray-500">
             {phase === 'phone' && 'Enter your Indian mobile number to receive an OTP.'}
-            {phase === 'otp' && `OTP sent to +91 ${phone}. Check the server console.`}
+            {phase === 'otp' && `OTP sent successfully to +91 ${phone}.`}
             {phase === 'verified' && 'You are verified!'}
           </p>
         </div>
