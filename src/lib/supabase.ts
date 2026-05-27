@@ -453,6 +453,17 @@ export async function checkIsAdmin(): Promise<boolean> {
   return data !== null;
 }
 
+// ─── Admin Followup type ──────────────────────────────────────────────────────
+
+export type AdminFollowup = {
+  id: string;
+  submission_id: string;
+  admin_email: string;
+  followup_text: string;
+  created_at: string;
+  updated_at: string;
+};
+
 /**
  * Fetch all profiles (admin only — uses service-role to bypass RLS).
  */
@@ -794,6 +805,82 @@ export async function getMarketPrices(category?: string) {
     throw new Error(error.message || 'Failed to fetch market prices.');
   }
   return (data || []) as MarketPrice[];
+}
+
+// ─── Admin Followup CRUD ──────────────────────────────────────────────────────
+
+/**
+ * Fetch all followups for the given admin email (only their own notes).
+ */
+export async function adminGetFollowupsByAdmin(adminEmail: string): Promise<AdminFollowup[]> {
+  requireSupabaseConfig();
+  const { data, error } = await adminSupabase
+    .from('admin_followups')
+    .select('*')
+    .eq('admin_email', adminEmail)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as AdminFollowup[];
+}
+
+/**
+ * Fetch followups for a specific submission, scoped to the given admin.
+ */
+export async function adminGetFollowupsForSubmission(
+  submissionId: string,
+  adminEmail: string
+): Promise<AdminFollowup[]> {
+  requireSupabaseConfig();
+  const { data, error } = await adminSupabase
+    .from('admin_followups')
+    .select('*')
+    .eq('submission_id', submissionId)
+    .eq('admin_email', adminEmail)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as AdminFollowup[];
+}
+
+/**
+ * Add a new followup note for a submission.
+ */
+export async function adminAddFollowup(
+  submissionId: string,
+  adminEmail: string,
+  text: string
+): Promise<AdminFollowup> {
+  requireSupabaseConfig();
+  const { data, error } = await adminSupabase
+    .from('admin_followups')
+    .insert([{ submission_id: submissionId, admin_email: adminEmail, followup_text: text.trim() }])
+    .select()
+    .single();
+  if (error) throw error;
+  return data as AdminFollowup;
+}
+
+/**
+ * Update an existing followup note.
+ */
+export async function adminUpdateFollowup(id: string, text: string): Promise<void> {
+  requireSupabaseConfig();
+  const { error } = await adminSupabase
+    .from('admin_followups')
+    .update({ followup_text: text.trim(), updated_at: new Date().toISOString() })
+    .eq('id', id);
+  if (error) throw error;
+}
+
+/**
+ * Delete a followup note.
+ */
+export async function adminDeleteFollowup(id: string): Promise<void> {
+  requireSupabaseConfig();
+  const { error } = await adminSupabase
+    .from('admin_followups')
+    .delete()
+    .eq('id', id);
+  if (error) throw error;
 }
 
 export function subscribeToMarketPrices(

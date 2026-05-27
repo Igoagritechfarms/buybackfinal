@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { LogIn, Eye, EyeOff, AlertCircle, ShieldCheck, Lock } from 'lucide-react';
 import { BrandLogo } from '../components/BrandLogo';
-import { useAdminAuth } from '../contexts/AdminAuthContext';
+import { useAdminAuth, STATIC_ADMINS } from '../contexts/AdminAuthContext';
 
 export const AdminLogin = () => {
   const navigate = useNavigate();
@@ -210,12 +210,16 @@ export const AdminLogin = () => {
 
             {/* Credentials hint */}
             <div className="mx-8 mb-6 px-4 py-3 bg-green-50 border border-green-200 rounded-xl">
-              <p className="text-[11px] font-semibold text-green-800 mb-1 flex items-center gap-1.5">
-                <ShieldCheck size={12} className="text-green-600" /> Default Admin Credentials
+              <p className="text-[11px] font-semibold text-green-800 mb-2 flex items-center gap-1.5">
+                <ShieldCheck size={12} className="text-green-600" /> Admin Credentials
               </p>
-              <div className="grid grid-cols-2 gap-x-4 text-[11px] text-green-700">
-                <span>User ID: <strong className="font-bold">admin</strong></span>
-                <span>Password: <strong className="font-bold">IGO@Admin2026</strong></span>
+              <div className="space-y-1.5">
+                {STATIC_ADMINS.map((a) => (
+                  <div key={a.id} className="grid grid-cols-2 gap-x-4 text-[11px] text-green-700">
+                    <span>ID: <strong className="font-bold">{a.id}</strong></span>
+                    <span>Pass: <strong className="font-bold">{a.password}</strong></span>
+                  </div>
+                ))}
               </div>
             </div>
           </div>

@@ -1,5 +1,6 @@
-import { Fragment, useState, useEffect, useCallback, useMemo } from 'react';
+import { Fragment, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import * as XLSX from 'xlsx';
 import {
   Users,
   ClipboardList,
@@ -20,6 +21,17 @@ import {
   Upload,
   Download,
   BarChart2,
+  MessageSquarePlus,
+  Pencil,
+  Trash2,
+  MessageSquare,
+  Lock,
+  FileDown,
+  FileUp,
+  FileSpreadsheet,
+  X,
+  CheckCircle,
+  AlertTriangle,
 } from 'lucide-react';
 import {
   BarChart,
@@ -45,11 +57,16 @@ import {
   adminUploadPaymentScreenshot,
   getPaymentScreenshotDownloadUrl,
   validatePaymentScreenshotFile,
+  adminGetFollowupsByAdmin,
+  adminAddFollowup,
+  adminUpdateFollowup,
+  adminDeleteFollowup,
   Profile,
   BuybackSubmission,
   BankAccount,
   UserFormDetails,
   PaymentScreenshot,
+  AdminFollowup,
 } from '../lib/supabase';
 import { toast } from 'sonner';
 
@@ -78,6 +95,17 @@ const STATUS_CONFIG: Record<
 
 type Tab = 'submissions' | 'users' | 'bank' | 'charts';
 type ChartPeriod = 'daily' | 'weekly' | 'monthly';
+
+interface ImportRow {
+  rowNum: number;
+  submissionId: string;
+  contactName: string;
+  phone: string;
+  product: string;
+  currentStatus: BuybackSubmission['status'] | null;
+  importStatus: BuybackSubmission['status'];
+  matched: boolean;
+}
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -166,11 +194,26 @@ function maskAccountNumber(num: string) {
   return '•'.repeat(num.length - 4) + num.slice(-4);
 }
 
+// ─── Export helpers (module-level, no component state) ───────────────────────
+
+const EXPORT_HEADERS = [
+  'Contact Name', 'Phone', 'Product', 'Qty', 'Unit', 'Type', 'Location',
+  'Status', 'Expected Price', 'Harvest Date', 'Site Visit Date', 'Notes',
+  'Submission ID', 'User ID', 'Created At',
+];
+
+const submissionToRow = (s: BuybackSubmission): (string | number)[] => [
+  s.contact_name, s.contact_phone, s.product_name, s.quantity ?? '', s.quantity_unit ?? '',
+  s.submission_type ?? '', s.location, s.status ?? 'pending', s.expected_price ?? '',
+  s.harvest_date ?? '', s.site_visit_date ?? '', s.schedule_notes ?? '',
+  s.id ?? '', s.user_id ?? '', s.created_at ?? '',
+];
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export const AdminDashboardPage = () => {
   const navigate = useNavigate();
-  const { user, logout } = useAdminAuth();
+  const { user, logout, adminEmail, adminName } = useAdminAuth();
 
   const [activeTab, setActiveTab] = useState<Tab>('submissions');
   const [loading, setLoading] = useState(true);
@@ -184,6 +227,12 @@ export const AdminDashboardPage = () => {
 
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
   const [uploadingPaymentFor, setUploadingPaymentFor] = useState<string | null>(null);
+
+  // Followups — keyed by submission id, only current admin's notes
+  const [followups, setFollowups] = useState<Record<string, AdminFollowup[]>>({});
+  const [followupInput, setFollowupInput] = useState<Record<string, string>>({});
+  const [editingFollowup, setEditingFollowup] = useState<{ id: string; text: string } | null>(null);
+  const [savingFollowup, setSavingFollowup] = useState(false);
 
   // Filters & pagination — submissions
   const [subSearch, setSubSearch] = useState('');
@@ -205,6 +254,15 @@ export const AdminDashboardPage = () => {
 
   // Charts
   const [chartPeriod, setChartPeriod] = useState<ChartPeriod>('monthly');
+
+  // Import modal
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importRows, setImportRows] = useState<ImportRow[]>([]);
+  const [importFileName, setImportFileName] = useState('');
+  const [importParsing, setImportParsing] = useState(false);
+  const [importSaving, setImportSaving] = useState(false);
+  const [importResults, setImportResults] = useState<{ id: string; success: boolean; msg: string }[]>([]);
+  const importFileRef = useRef<HTMLInputElement>(null);
 
   // ── Data fetching ──────────────────────────────────────────────────────────
 
@@ -253,6 +311,85 @@ export const AdminDashboardPage = () => {
   useEffect(() => {
     fetchAll();
   }, [fetchAll]);
+
+  // ── Load followups for this admin ─────────────────────────────────────────
+
+  const loadFollowups = useCallback(async () => {
+    if (!adminEmail) return;
+    try {
+      const all = await adminGetFollowupsByAdmin(adminEmail);
+      const grouped: Record<string, AdminFollowup[]> = {};
+      for (const f of all) {
+        if (!grouped[f.submission_id]) grouped[f.submission_id] = [];
+        grouped[f.submission_id].push(f);
+      }
+      setFollowups(grouped);
+    } catch {
+      // table may not exist yet — silently ignore
+    }
+  }, [adminEmail]);
+
+  useEffect(() => {
+    loadFollowups();
+  }, [loadFollowups]);
+
+  // ── Followup handlers ──────────────────────────────────────────────────────
+
+  const handleAddFollowup = useCallback(async (submissionId: string) => {
+    const text = (followupInput[submissionId] ?? '').trim();
+    if (!text || !adminEmail) return;
+    setSavingFollowup(true);
+    try {
+      const created = await adminAddFollowup(submissionId, adminEmail, text);
+      setFollowups((prev) => ({
+        ...prev,
+        [submissionId]: [created, ...(prev[submissionId] ?? [])],
+      }));
+      setFollowupInput((prev) => ({ ...prev, [submissionId]: '' }));
+      toast.success('Followup added');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to add followup');
+    } finally {
+      setSavingFollowup(false);
+    }
+  }, [adminEmail, followupInput]);
+
+  const handleSaveEditFollowup = useCallback(async () => {
+    if (!editingFollowup || !editingFollowup.text.trim()) return;
+    setSavingFollowup(true);
+    try {
+      await adminUpdateFollowup(editingFollowup.id, editingFollowup.text);
+      setFollowups((prev) => {
+        const next = { ...prev };
+        for (const sid of Object.keys(next)) {
+          next[sid] = next[sid].map((f) =>
+            f.id === editingFollowup.id ? { ...f, followup_text: editingFollowup.text } : f
+          );
+        }
+        return next;
+      });
+      setEditingFollowup(null);
+      toast.success('Followup updated');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to update followup');
+    } finally {
+      setSavingFollowup(false);
+    }
+  }, [editingFollowup]);
+
+  const handleDeleteFollowup = useCallback(async (followupId: string, submissionId: string) => {
+    if (!confirm('Delete this followup note?')) return;
+    try {
+      await adminDeleteFollowup(followupId);
+      setFollowups((prev) => ({
+        ...prev,
+        [submissionId]: (prev[submissionId] ?? []).filter((f) => f.id !== followupId),
+      }));
+      toast.success('Followup deleted');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to delete followup');
+    }
+  }, []);
 
   // ── Status update ──────────────────────────────────────────────────────────
 
@@ -315,6 +452,79 @@ export const AdminDashboardPage = () => {
       toast.error('Logout failed');
     }
   };
+
+  // ── Import ─────────────────────────────────────────────────────────────────
+
+  const handleImportFile = useCallback(async (file: File) => {
+    setImportParsing(true);
+    setImportResults([]);
+    setImportRows([]);
+    setImportFileName(file.name);
+    try {
+      const buffer = await file.arrayBuffer();
+      const wb = XLSX.read(buffer, { type: 'array' });
+      const sheetName = wb.SheetNames[0];
+      if (!sheetName) throw new Error('Workbook is empty');
+      const ws = wb.Sheets[sheetName];
+      if (!ws) throw new Error('Could not read sheet');
+      const raw = XLSX.utils.sheet_to_json<Record<string, string>>(ws, { defval: '' });
+
+      const rows: ImportRow[] = raw
+        .map((row, i) => {
+          const sid = String(
+            row['Submission ID'] ?? row['submission_id'] ?? row['id'] ?? ''
+          ).trim();
+          const statusRaw = String(
+            row['Status'] ?? row['status'] ?? row['New Status'] ?? ''
+          ).trim().toLowerCase() as BuybackSubmission['status'];
+          const importStatus: BuybackSubmission['status'] = SUBMISSION_STATUSES.includes(statusRaw)
+            ? statusRaw
+            : 'pending';
+          const matched = submissions.find((s) => s.id === sid);
+          return {
+            rowNum: i + 2,
+            submissionId: sid,
+            contactName: matched?.contact_name ?? String(row['Contact Name'] ?? ''),
+            phone: matched?.contact_phone ?? String(row['Phone'] ?? ''),
+            product: matched?.product_name ?? String(row['Product'] ?? ''),
+            currentStatus: matched?.status ?? null,
+            importStatus,
+            matched: !!matched,
+          };
+        })
+        .filter((r) => r.submissionId);
+
+      setImportRows(rows);
+      if (rows.length === 0) toast.warning('No valid rows found. Make sure the file has a "Submission ID" column.');
+    } catch {
+      toast.error('Failed to parse file. Use a valid .xlsx, .xls, or .csv file.');
+    } finally {
+      setImportParsing(false);
+    }
+  }, [submissions]);
+
+  const handleSaveImport = useCallback(async () => {
+    const toUpdate = importRows.filter(
+      (r) => r.matched && r.importStatus !== r.currentStatus
+    );
+    if (toUpdate.length === 0) { toast.info('No status changes to apply.'); return; }
+    setImportSaving(true);
+    setImportResults([]);
+    const results: { id: string; success: boolean; msg: string }[] = [];
+    for (const row of toUpdate) {
+      try {
+        await adminUpdateSubmissionStatus(row.submissionId, row.importStatus);
+        results.push({ id: row.submissionId, success: true, msg: `→ ${STATUS_CONFIG[row.importStatus!].label}` });
+      } catch (err) {
+        results.push({ id: row.submissionId, success: false, msg: err instanceof Error ? err.message : 'Failed' });
+      }
+    }
+    setImportResults(results);
+    const ok = results.filter((r) => r.success).length;
+    if (ok > 0) { await fetchAll(); toast.success(`${ok} submission${ok !== 1 ? 's' : ''} updated`); }
+    if (results.some((r) => !r.success)) toast.error(`${results.filter((r) => !r.success).length} updates failed`);
+    setImportSaving(false);
+  }, [importRows, fetchAll]);
 
   // ── Stats ──────────────────────────────────────────────────────────────────
 
@@ -428,6 +638,35 @@ export const AdminDashboardPage = () => {
   const subTotalPages = Math.max(1, Math.ceil(filteredSubmissions.length / PAGE_SIZE));
   const pagedSubmissions = filteredSubmissions.slice((subPage - 1) * PAGE_SIZE, subPage * PAGE_SIZE);
 
+  // ── Export functions (defined after filteredSubmissions) ───────────────────
+
+  const exportToCSV = () => {
+    const rows = [EXPORT_HEADERS, ...filteredSubmissions.map(submissionToRow)];
+    const csv = rows.map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `submissions_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`Exported ${filteredSubmissions.length} rows as CSV`);
+  };
+
+  const exportToExcel = () => {
+    const wsData: (string | number)[][] = [EXPORT_HEADERS, ...filteredSubmissions.map(submissionToRow)];
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    ws['!cols'] = EXPORT_HEADERS.map((h, i) => {
+      const colVals = wsData.slice(1).map((r) => String(r[i] ?? ''));
+      const maxLen = Math.max(h.length, ...colVals.map((v) => v.length));
+      return { wch: Math.min(maxLen + 2, 40) };
+    });
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Submissions');
+    XLSX.writeFile(wb, `submissions_${new Date().toISOString().split('T')[0]}.xlsx`);
+    toast.success(`Exported ${filteredSubmissions.length} rows as Excel`);
+  };
+
   const filteredUsers = profiles.filter((p) => {
     const q = userSearch.toLowerCase();
     return (
@@ -487,8 +726,9 @@ export const AdminDashboardPage = () => {
           </span>
         </div>
         <div className="flex items-center gap-3">
-          <span className="hidden md:block text-sm text-gray-400 truncate max-w-[200px]">
-            {user?.email}
+          <span className="hidden md:flex flex-col items-end">
+            <span className="text-sm font-semibold text-gray-200">{adminName}</span>
+            <span className="text-xs text-gray-500 truncate max-w-[180px]">{adminEmail}</span>
           </span>
           <button
             onClick={() => navigate('/admin/products')}
@@ -610,6 +850,30 @@ export const AdminDashboardPage = () => {
               <span className="text-xs text-gray-500 whitespace-nowrap">
                 {filteredSubmissions.length} result{filteredSubmissions.length !== 1 ? 's' : ''}
               </span>
+              {/* Export / Import buttons */}
+              <div className="flex items-center gap-1.5 ml-auto shrink-0">
+                <button
+                  onClick={exportToCSV}
+                  title="Export as CSV"
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-xs text-gray-300 hover:text-white border border-gray-700 transition"
+                >
+                  <FileDown size={13} /> CSV
+                </button>
+                <button
+                  onClick={exportToExcel}
+                  title="Export as Excel"
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-900/40 hover:bg-emerald-800/50 text-xs text-emerald-300 hover:text-emerald-200 border border-emerald-700/40 transition"
+                >
+                  <FileSpreadsheet size={13} /> Excel
+                </button>
+                <button
+                  onClick={() => { setShowImportModal(true); setImportRows([]); setImportResults([]); setImportFileName(''); }}
+                  title="Import Excel / CSV"
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-blue-900/40 hover:bg-blue-800/50 text-xs text-blue-300 hover:text-blue-200 border border-blue-700/40 transition"
+                >
+                  <FileUp size={13} /> Import
+                </button>
+              </div>
             </div>
 
             <div className="overflow-x-auto">
@@ -703,15 +967,16 @@ export const AdminDashboardPage = () => {
                               : '—'}
                           </td>
                           <td className="px-4 py-3 text-gray-600 text-xs">
-                            {expandedRow === sub.id ? '▲' : '▼'}
+                            {expandedRow === rowKey ? '▲' : '▼'}
                           </td>
                         </tr>
 
                         {/* Expanded row */}
                         {expandedRow === rowKey && (
                           <tr className="bg-gray-800/30">
-                            <td colSpan={8} className="px-6 py-4">
-                              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 text-sm">
+                            <td colSpan={8} className="px-6 py-5">
+                              {/* Details grid */}
+                              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 text-sm mb-5">
                                 {[
                                   ['Expected Price', sub.expected_price ? `₹${sub.expected_price}` : '—'],
                                   ['Harvest / Delivery Date', sub.harvest_date ?? '—'],
@@ -727,6 +992,126 @@ export const AdminDashboardPage = () => {
                                   </div>
                                 ))}
                               </div>
+
+                              {/* ── Followup panel ── */}
+                              {sub.id && (
+                                <div className="border-t border-gray-700 pt-4">
+                                  <div className="flex items-center justify-between mb-3">
+                                    <p className="flex items-center gap-1.5 text-xs font-semibold text-green-400 uppercase tracking-wider">
+                                      <MessageSquare size={13} />
+                                      My Followups
+                                    </p>
+                                    <span className="flex items-center gap-1 text-[11px] text-gray-500 bg-gray-800 px-2 py-0.5 rounded-full border border-gray-700">
+                                      <Lock size={9} className="text-gray-600" />
+                                      Visible only to <strong className="text-gray-300 ml-0.5">{adminName}</strong>
+                                    </span>
+                                  </div>
+
+                                  {/* Add new followup */}
+                                  <div className="flex gap-2 mb-3">
+                                    <textarea
+                                      rows={2}
+                                      placeholder="Add a followup note…"
+                                      value={followupInput[sub.id] ?? ''}
+                                      onChange={(e) =>
+                                        setFollowupInput((prev) => ({ ...prev, [sub.id!]: e.target.value }))
+                                      }
+                                      className="flex-1 px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-sm text-gray-200 placeholder-gray-600 resize-none focus:outline-none focus:ring-2 focus:ring-green-500/50"
+                                    />
+                                    <button
+                                      onClick={() => handleAddFollowup(sub.id!)}
+                                      disabled={savingFollowup || !(followupInput[sub.id] ?? '').trim()}
+                                      className="self-end flex items-center gap-1.5 px-3 py-2 bg-green-600 hover:bg-green-500 text-white text-xs font-semibold rounded-lg transition disabled:opacity-40"
+                                    >
+                                      <MessageSquarePlus size={14} />
+                                      Add
+                                    </button>
+                                  </div>
+
+                                  {/* Existing followups */}
+                                  {(followups[sub.id] ?? []).length === 0 ? (
+                                    <p className="text-xs text-gray-600 italic">No followup notes yet.</p>
+                                  ) : (
+                                    <div className="space-y-2">
+                                      {(followups[sub.id] ?? []).map((f) => (
+                                        <div key={f.id} className="bg-gray-900 border border-gray-700 rounded-lg px-3 py-2">
+                                          {editingFollowup?.id === f.id ? (
+                                            <div className="flex gap-2">
+                                              <textarea
+                                                rows={2}
+                                                value={editingFollowup.text}
+                                                onChange={(e) =>
+                                                  setEditingFollowup({ id: f.id, text: e.target.value })
+                                                }
+                                                className="flex-1 px-2 py-1 bg-gray-800 border border-green-600 rounded text-sm text-gray-200 resize-none focus:outline-none"
+                                              />
+                                              <div className="flex flex-col gap-1 self-end">
+                                                <button
+                                                  onClick={handleSaveEditFollowup}
+                                                  disabled={savingFollowup}
+                                                  className="text-xs px-2 py-1 bg-green-600 hover:bg-green-500 text-white rounded transition disabled:opacity-40"
+                                                >
+                                                  Save
+                                                </button>
+                                                <button
+                                                  onClick={() => setEditingFollowup(null)}
+                                                  className="text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition"
+                                                >
+                                                  Cancel
+                                                </button>
+                                              </div>
+                                            </div>
+                                          ) : (
+                                            <div className="flex items-start gap-2.5">
+                                              {/* Author avatar */}
+                                              <div className="w-7 h-7 rounded-full bg-green-500/20 text-green-400 flex items-center justify-center text-[11px] font-bold shrink-0 mt-0.5 border border-green-500/20">
+                                                {adminName.charAt(0).toUpperCase()}
+                                              </div>
+                                              <div className="flex-1 min-w-0">
+                                                {/* Author name + timestamp */}
+                                                <div className="flex items-center justify-between gap-2 mb-1">
+                                                  <div className="flex items-baseline gap-2">
+                                                    <span className="text-xs font-bold text-green-400">{adminName}</span>
+                                                    <span className="text-[10px] text-gray-500 truncate">
+                                                      {adminEmail}
+                                                    </span>
+                                                    <span className="text-[10px] text-gray-600">
+                                                      · {new Date(f.created_at).toLocaleString('en-IN', {
+                                                        day: '2-digit', month: 'short', year: 'numeric',
+                                                        hour: '2-digit', minute: '2-digit',
+                                                      })}
+                                                      {f.updated_at !== f.created_at && ' · edited'}
+                                                    </span>
+                                                  </div>
+                                                  {/* Action buttons */}
+                                                  <div className="flex gap-1 shrink-0">
+                                                    <button
+                                                      onClick={() => setEditingFollowup({ id: f.id, text: f.followup_text })}
+                                                      className="p-1 rounded hover:bg-gray-700 text-gray-600 hover:text-gray-200 transition"
+                                                      title="Edit"
+                                                    >
+                                                      <Pencil size={12} />
+                                                    </button>
+                                                    <button
+                                                      onClick={() => handleDeleteFollowup(f.id, sub.id!)}
+                                                      className="p-1 rounded hover:bg-red-900/40 text-gray-600 hover:text-red-400 transition"
+                                                      title="Delete"
+                                                    >
+                                                      <Trash2 size={12} />
+                                                    </button>
+                                                  </div>
+                                                </div>
+                                                {/* Note content */}
+                                                <p className="text-sm text-gray-200 whitespace-pre-wrap leading-relaxed">{f.followup_text}</p>
+                                              </div>
+                                            </div>
+                                          )}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
                             </td>
                           </tr>
                         )}
@@ -1177,6 +1562,220 @@ export const AdminDashboardPage = () => {
               )}
             </div>
           </section>
+        )}
+
+        {/* ── Import Modal ── */}
+        {showImportModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+            <div className="w-full max-w-5xl max-h-[90vh] flex flex-col bg-gray-900 rounded-2xl border border-gray-700 shadow-2xl overflow-hidden">
+              {/* Modal header */}
+              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-700 shrink-0">
+                <div className="flex items-center gap-2.5">
+                  <FileUp size={18} className="text-blue-400" />
+                  <span className="font-bold text-gray-100">Import Excel / CSV</span>
+                  {importFileName && (
+                    <span className="text-xs text-gray-400 bg-gray-800 px-2 py-0.5 rounded-full border border-gray-700">
+                      {importFileName}
+                    </span>
+                  )}
+                </div>
+                <button
+                  onClick={() => setShowImportModal(false)}
+                  className="p-1.5 rounded-lg hover:bg-gray-700 text-gray-400 hover:text-white transition"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Instructions */}
+              <div className="px-6 py-3 bg-blue-950/30 border-b border-blue-900/30 text-xs text-blue-300 shrink-0">
+                <strong>How to use:</strong> Export the current submissions as Excel → edit the <em>Status</em> column → re-upload here to bulk-update statuses.
+                Valid status values: <span className="font-mono">{SUBMISSION_STATUSES.join(', ')}</span>
+              </div>
+
+              {/* Upload area */}
+              {importRows.length === 0 && !importParsing && (
+                <div className="flex-1 flex flex-col items-center justify-center p-10">
+                  <label className="flex flex-col items-center gap-4 cursor-pointer group">
+                    <div className="w-20 h-20 rounded-2xl bg-blue-900/30 border-2 border-dashed border-blue-700/50 group-hover:border-blue-500 flex items-center justify-center transition">
+                      <FileSpreadsheet size={36} className="text-blue-400 group-hover:text-blue-300 transition" />
+                    </div>
+                    <div className="text-center">
+                      <p className="text-base font-semibold text-gray-200 group-hover:text-white transition">
+                        Drop file here or click to browse
+                      </p>
+                      <p className="text-sm text-gray-500 mt-1">Supports .xlsx, .xls, .csv</p>
+                    </div>
+                    <input
+                      ref={importFileRef}
+                      type="file"
+                      accept=".xlsx,.xls,.csv"
+                      className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) void handleImportFile(f);
+                        e.currentTarget.value = '';
+                      }}
+                    />
+                  </label>
+                  <div className="mt-6 flex gap-3">
+                    <button
+                      onClick={exportToExcel}
+                      className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-900/40 hover:bg-emerald-800/60 text-emerald-300 text-sm border border-emerald-700/40 transition"
+                    >
+                      <FileDown size={14} /> Download Excel Template
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {importParsing && (
+                <div className="flex-1 flex items-center justify-center gap-3 text-gray-400">
+                  <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                  Parsing file…
+                </div>
+              )}
+
+              {/* Preview table */}
+              {importRows.length > 0 && !importParsing && (
+                <div className="flex-1 overflow-auto">
+                  <table className="w-full text-sm">
+                    <thead className="sticky top-0 bg-gray-800 z-10">
+                      <tr className="border-b border-gray-700 text-left">
+                        {['Row', 'Contact', 'Phone', 'Product', 'Current Status', 'Import Status', 'Change?'].map((h) => (
+                          <th key={h} className="px-4 py-2.5 text-xs font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap">
+                            {h}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-800/60">
+                      {importRows.map((row, idx) => {
+                        const willChange = row.matched && row.importStatus !== row.currentStatus;
+                        return (
+                          <tr
+                            key={idx}
+                            className={`transition ${!row.matched ? 'opacity-40' : willChange ? 'bg-yellow-900/10' : ''}`}
+                          >
+                            <td className="px-4 py-2.5 text-gray-500 text-xs">{row.rowNum}</td>
+                            <td className="px-4 py-2.5 text-gray-200">{row.contactName || '—'}</td>
+                            <td className="px-4 py-2.5 text-gray-400 text-xs">{row.phone || '—'}</td>
+                            <td className="px-4 py-2.5 text-gray-300">{row.product || '—'}</td>
+                            <td className="px-4 py-2.5">
+                              {row.currentStatus ? (
+                                <StatusBadge status={row.currentStatus} />
+                              ) : (
+                                <span className="text-xs text-red-400 italic">Not found</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-2.5">
+                              <select
+                                value={row.importStatus ?? 'pending'}
+                                disabled={!row.matched}
+                                onChange={(e) =>
+                                  setImportRows((prev) =>
+                                    prev.map((r, i) =>
+                                      i === idx
+                                        ? { ...r, importStatus: e.target.value as BuybackSubmission['status'] }
+                                        : r
+                                    )
+                                  )
+                                }
+                                className={`text-xs rounded-lg px-2 py-1 border focus:outline-none focus:ring-2 focus:ring-blue-500/40 transition cursor-pointer disabled:opacity-40 ${
+                                  STATUS_CONFIG[row.importStatus ?? 'pending'].bg
+                                } ${STATUS_CONFIG[row.importStatus ?? 'pending'].text} border-transparent`}
+                              >
+                                {SUBMISSION_STATUSES.map((s) => (
+                                  <option key={s} value={s}>{STATUS_CONFIG[s!].label}</option>
+                                ))}
+                              </select>
+                            </td>
+                            <td className="px-4 py-2.5 text-xs">
+                              {!row.matched ? (
+                                <span className="text-gray-600">—</span>
+                              ) : willChange ? (
+                                <span className="text-yellow-400 font-semibold">Will update</span>
+                              ) : (
+                                <span className="text-gray-600">No change</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* Results section */}
+              {importResults.length > 0 && (
+                <div className="px-6 py-3 border-t border-gray-700 max-h-36 overflow-y-auto shrink-0 space-y-1">
+                  {importResults.map((r, i) => (
+                    <div key={i} className={`flex items-center gap-2 text-xs ${r.success ? 'text-green-400' : 'text-red-400'}`}>
+                      {r.success ? <CheckCircle size={12} /> : <AlertTriangle size={12} />}
+                      <span className="font-mono text-[10px] text-gray-500">{r.id.slice(0, 8)}…</span>
+                      <span>{r.msg}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Modal footer */}
+              <div className="flex items-center justify-between px-6 py-4 border-t border-gray-700 shrink-0 bg-gray-900">
+                <div className="text-xs text-gray-500">
+                  {importRows.length > 0 && (
+                    <>
+                      <span className="text-gray-300 font-semibold">
+                        {importRows.filter((r) => r.matched).length}
+                      </span> matched ·{' '}
+                      <span className="text-yellow-400 font-semibold">
+                        {importRows.filter((r) => r.matched && r.importStatus !== r.currentStatus).length}
+                      </span> will change ·{' '}
+                      <span className="text-red-400 font-semibold">
+                        {importRows.filter((r) => !r.matched).length}
+                      </span> not found
+                    </>
+                  )}
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <button
+                    onClick={() => { setImportRows([]); setImportResults([]); setImportFileName(''); }}
+                    className="px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm transition"
+                  >
+                    Clear
+                  </button>
+                  <button
+                    onClick={() => setShowImportModal(false)}
+                    className="px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm transition"
+                  >
+                    Close
+                  </button>
+                  {importRows.length > 0 && (
+                    <button
+                      onClick={handleSaveImport}
+                      disabled={
+                        importSaving ||
+                        importRows.filter((r) => r.matched && r.importStatus !== r.currentStatus).length === 0
+                      }
+                      className="flex items-center gap-2 px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold transition disabled:opacity-40"
+                    >
+                      {importSaving ? (
+                        <>
+                          <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          Applying…
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle size={14} />
+                          Apply {importRows.filter((r) => r.matched && r.importStatus !== r.currentStatus).length} Changes
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
         )}
 
         {/* ── Status legend ── */}
