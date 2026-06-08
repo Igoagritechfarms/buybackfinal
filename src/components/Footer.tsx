@@ -19,14 +19,18 @@ export const Footer = () => (
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
         >
-          <BrandLogo
-            to="/"
-            linkClassName="group w-fit"
-            className="flex flex-col items-start gap-1.5"
-            imageClassName="h-16 w-auto rounded-xl"
-            caption="Agricultural Marketplace"
-            captionClassName="pl-1 text-[9px] font-semibold leading-none uppercase tracking-widest text-gray-500"
-          />
+          <Link to="/" className="group w-fit" aria-label="Farmgate Mandi">
+            <div className="flex flex-col items-start gap-1.5">
+              <img
+                src="/farmgate-mandi-logo-transparent.png"
+                alt="Farmgate Mandi"
+                className="h-16 w-auto object-contain mix-blend-screen"
+                loading="eager"
+                decoding="async"
+              />
+              <span className="pl-1 text-[9px] font-semibold leading-none uppercase tracking-widest text-gray-500">Agricultural Marketplace</span>
+            </div>
+          </Link>
 
           <p className="text-gray-400 text-sm leading-relaxed">
             Empowering farmers through transparent farmgate mandi, fair pricing, and technology-driven logistics across India & beyond.
