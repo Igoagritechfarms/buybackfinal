@@ -130,11 +130,15 @@ export const HowItWorksSection = () => {
       {/* Attachment-inspired operational background theme with improved clarity */}
       <div className="absolute inset-0 pointer-events-none">
         <AnimatePresence mode="wait">
-          <motion.img
+          <motion.div
             key={`bg-${HOW_IT_WORKS_SLIDES[slideIndex]!.id}`}
-            src={HOW_IT_WORKS_SLIDES[slideIndex]!.src}
-            alt="How it works background"
-            className="absolute inset-0 h-full w-full object-cover contrast-110 saturate-110"
+            className="absolute inset-0"
+            style={{
+              backgroundImage: `url(${HOW_IT_WORKS_SLIDES[slideIndex]!.src})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              filter: 'contrast(1.1) saturate(1.1)',
+            }}
             initial={{ opacity: 0, scale: 1.04, x: 24 }}
             animate={{ opacity: 0.45, scale: 1, x: 0 }}
             exit={{ opacity: 0, scale: 0.98, x: -24 }}
