@@ -24,7 +24,7 @@ export const Footer = () => (
               <img
                 src="/farmgate-mandi-logo-transparent.png"
                 alt="Farmgate Mandi"
-                className="h-16 w-auto object-contain mix-blend-screen"
+                className="h-16 w-auto object-contain"
                 loading="eager"
                 decoding="async"
               />
